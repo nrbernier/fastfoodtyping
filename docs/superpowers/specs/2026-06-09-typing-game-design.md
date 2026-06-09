@@ -59,7 +59,7 @@ First-person "behind the counter" view (user-selected over a side-scrolling queu
 - A recent-words buffer prevents any pool word from reappearing within its last 50 uses in the session.
 - All order text lowercase for matching; display may be styled.
 
-**Difficulty knobs:** word tier mix, words per order (1→3), spawn rate, max simultaneous customers, patience duration. Each shift defines fixed curves over its duration (Monday ≈ all Tier 1; Friday starts Tier 2, ends deep Tier 3 with 3-word orders). Overtime escalates the same knobs continuously without limit.
+**Difficulty knobs:** word tier mix, words per order (1→3), spawn rate, max simultaneous customers, patience duration. Each shift defines fixed curves over its duration (Monday ≈ all Tier 1; Friday starts Tier 2, ends deep Tier 3 with 3-word orders). Overtime escalates the same knobs continuously, reaching maximum brutality after ~3 minutes and holding there (floors: 1.5s spawn interval, 4s patience, 3-word all-Tier-3 orders).
 
 ## Mobile Layout & Input
 
