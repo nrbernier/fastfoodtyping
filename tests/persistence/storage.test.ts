@@ -42,6 +42,13 @@ describe('SaveStore', () => {
     expect(store.load().highScores.monday).toBe(150);
   });
 
+  it('rejects valid JSON with the wrong shape', () => {
+    const backing = fakeBacking();
+    backing.setItem('short-order-hero-save', '{"version":1}');
+    const store = new SaveStore(backing);
+    expect(store.load()).toEqual({ version: 1, unlockedShift: 0, highScores: {} });
+  });
+
   it('survives corrupted JSON', () => {
     const backing = fakeBacking();
     backing.setItem('short-order-hero-save', 'not json{');
