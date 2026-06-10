@@ -4,6 +4,7 @@ import type { ShiftConfig } from '../../core/types';
 import { attachPhysicalKeyboard } from '../../input/inputAdapter';
 import { CustomerView } from '../CustomerView';
 import { Hud } from '../Hud';
+import { PrepStation } from '../PrepStation';
 import { COLORS, FONT } from '../theme';
 
 const HUD_TOP_FRACTION = 0.86;
@@ -14,7 +15,9 @@ export class GameScene extends Phaser.Scene {
   private engine!: ShiftEngine;
   private views = new Map<number, CustomerView>();
   private orderTexts = new Map<number, string>();
+  private orderWords = new Map<number, string[]>();
   private hud!: Hud;
+  private prep!: PrepStation;
   private pauseOverlay!: Phaser.GameObjects.Container;
   private gamePaused = false;
   private maxSlots = 4;
@@ -32,12 +35,14 @@ export class GameScene extends Phaser.Scene {
     const { width, height } = this.scale;
     this.views.clear();
     this.orderTexts.clear();
+    this.orderWords.clear();
     this.gamePaused = false;
     this.cleanupFns = [];
     this.maxSlots = width < 700 ? 3 : 4;
     this.engine = new ShiftEngine({ config: this.config, maxCustomersCap: this.maxSlots });
 
     this.drawDiner(width, height);
+    this.prep = new PrepStation(this, width / 2, height * 0.78);
     this.hud = new Hud(this);
     this.hud.layout(width, height, height * HUD_TOP_FRACTION);
     this.buildPauseOverlay(width, height);
@@ -90,6 +95,7 @@ export class GameScene extends Phaser.Scene {
 
     e.on('customerArrived', ({ customer }) => {
       this.orderTexts.set(customer.id, customer.order.text);
+      this.orderWords.set(customer.id, customer.order.words);
       const view = new CustomerView(this, customer, this.slotX(customer.slot), this.counterY());
       this.views.set(customer.id, view);
     });
@@ -103,14 +109,21 @@ export class GameScene extends Phaser.Scene {
       this.hud.showOrder(this.orderTexts.get(customerId) ?? '', typedCount);
     });
 
-    e.on('wordCompleted', ({ customerId }) => {
-      // Prep station hooks in here in the next task.
+    e.on('wordCompleted', ({ customerId, wordIndex }) => {
       this.hud.showOrder(this.orderTexts.get(customerId) ?? '', this.engine.typedCount);
+      const word = this.orderWords.get(customerId)?.[wordIndex];
+      if (word) this.prep.dropBox(word);
     });
 
-    e.on('orderServed', ({ customerId }) => {
+    e.on('orderServed', ({ customerId, finalWordIndex }) => {
+      const word = this.orderWords.get(customerId)?.[finalWordIndex];
+      if (word) this.prep.dropBox(word);
       const view = this.views.get(customerId);
-      view?.serve(() => this.views.delete(customerId));
+      const tx = view?.x ?? this.scale.width / 2;
+      const ty = view?.y ?? this.scale.height * 0.4;
+      this.prep.serveDish(tx, ty, () => {
+        view?.serve(() => this.views.delete(customerId));
+      });
       this.hud.setScore(this.engine.score);
       this.hud.showOrder('', 0);
     });
@@ -125,6 +138,7 @@ export class GameScene extends Phaser.Scene {
 
     e.on('mistake', () => {
       this.hud.flashMistake();
+      this.prep.shake();
     });
 
     e.on('shiftEnded', ({ result }) => {
