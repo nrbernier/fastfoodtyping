@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { ShiftEngine } from '../../core/shiftEngine';
 import type { ShiftConfig } from '../../core/types';
-import { attachPhysicalKeyboard } from '../../input/inputAdapter';
+import { attachPhysicalKeyboard, createHiddenInput, isTouchDevice, type HiddenInput } from '../../input/inputAdapter';
 import { CustomerView } from '../CustomerView';
 import { Hud } from '../Hud';
 import { PrepStation } from '../PrepStation';
@@ -22,6 +22,9 @@ export class GameScene extends Phaser.Scene {
   private gamePaused = false;
   private maxSlots = 4;
   private cleanupFns: Array<() => void> = [];
+  private hidden?: HiddenInput;
+  private pauseRect!: Phaser.GameObjects.Rectangle;
+  private pauseText!: Phaser.GameObjects.Text;
 
   constructor() {
     super('game');
@@ -52,6 +55,12 @@ export class GameScene extends Phaser.Scene {
     const detach = attachPhysicalKeyboard(window, (ch) => this.onChar(ch));
     this.cleanupFns.push(detach);
 
+    if (isTouchDevice()) {
+      this.hidden = createHiddenInput(document, (ch) => this.onChar(ch));
+      this.cleanupFns.push(() => this.hidden?.destroy());
+      this.pauseGame('TAP TO START YOUR SHIFT\n(the keyboard is your grill)');
+    }
+
     const onBlur = () => this.pauseGame();
     window.addEventListener('blur', onBlur);
     this.cleanupFns.push(() => window.removeEventListener('blur', onBlur));
@@ -68,6 +77,16 @@ export class GameScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       for (const fn of this.cleanupFns) fn();
     });
+
+    const onResize = () => {
+      const w = this.scale.width;
+      const h = this.scale.height;
+      this.hud.layout(w, h, h * HUD_TOP_FRACTION);
+      this.pauseRect.setSize(w, h);
+      this.pauseText.setPosition(w / 2, h / 2);
+    };
+    this.scale.on(Phaser.Scale.Events.RESIZE, onResize);
+    this.cleanupFns.push(() => this.scale.off(Phaser.Scale.Events.RESIZE, onResize));
   }
 
   update(_time: number, delta: number) {
@@ -184,9 +203,9 @@ export class GameScene extends Phaser.Scene {
   // ---- pause ----
 
   private buildPauseOverlay(width: number, height: number) {
-    const rect = this.add.rectangle(0, 0, width, height, 0x000000, 0.6).setOrigin(0);
-    const txt = this.add
-      .text(width / 2, height / 2, 'PAUSED\nBack to the grill? Press any key or tap.', {
+    this.pauseRect = this.add.rectangle(0, 0, width, height, 0x000000, 0.6).setOrigin(0);
+    this.pauseText = this.add
+      .text(width / 2, height / 2, '', {
         fontFamily: FONT,
         fontSize: '26px',
         fontStyle: 'bold',
@@ -194,17 +213,19 @@ export class GameScene extends Phaser.Scene {
         align: 'center',
       })
       .setOrigin(0.5);
-    this.pauseOverlay = this.add.container(0, 0, [rect, txt]).setDepth(100).setVisible(false);
+    this.pauseOverlay = this.add.container(0, 0, [this.pauseRect, this.pauseText]).setDepth(100).setVisible(false);
   }
 
-  private pauseGame() {
+  private pauseGame(message = 'PAUSED\nBack to the grill? Press any key or tap.') {
     if (this.gamePaused || this.engine.isOver) return;
     this.gamePaused = true;
+    this.pauseText.setText(message);
     this.pauseOverlay.setVisible(true);
   }
 
   private resumeGame() {
     this.gamePaused = false;
     this.pauseOverlay.setVisible(false);
+    this.hidden?.focus();
   }
 }
