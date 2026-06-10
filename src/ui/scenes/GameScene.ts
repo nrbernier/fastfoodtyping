@@ -1,9 +1,24 @@
 import Phaser from 'phaser';
+import { ShiftEngine } from '../../core/shiftEngine';
 import type { ShiftConfig } from '../../core/types';
-import { FONT, makeButton } from '../theme';
+import { attachPhysicalKeyboard } from '../../input/inputAdapter';
+import { CustomerView } from '../CustomerView';
+import { Hud } from '../Hud';
+import { COLORS, FONT } from '../theme';
+
+const HUD_TOP_FRACTION = 0.86;
+const COUNTER_Y_FRACTION = 0.58;
 
 export class GameScene extends Phaser.Scene {
   private config!: ShiftConfig;
+  private engine!: ShiftEngine;
+  private views = new Map<number, CustomerView>();
+  private orderTexts = new Map<number, string>();
+  private hud!: Hud;
+  private pauseOverlay!: Phaser.GameObjects.Container;
+  private gamePaused = false;
+  private maxSlots = 4;
+  private cleanupFns: Array<() => void> = [];
 
   constructor() {
     super('game');
@@ -15,24 +30,167 @@ export class GameScene extends Phaser.Scene {
 
   create() {
     const { width, height } = this.scale;
+    this.views.clear();
+    this.orderTexts.clear();
+    this.gamePaused = false;
+    this.cleanupFns = [];
+    this.maxSlots = width < 700 ? 3 : 4;
+    this.engine = new ShiftEngine({ config: this.config, maxCustomersCap: this.maxSlots });
+
+    this.drawDiner(width, height);
+    this.hud = new Hud(this);
+    this.hud.layout(width, height, height * HUD_TOP_FRACTION);
+    this.buildPauseOverlay(width, height);
+
+    this.wireEngineEvents();
+
+    const detach = attachPhysicalKeyboard(window, (ch) => this.onChar(ch));
+    this.cleanupFns.push(detach);
+
+    const onBlur = () => this.pauseGame();
+    window.addEventListener('blur', onBlur);
+    this.cleanupFns.push(() => window.removeEventListener('blur', onBlur));
+    const onVis = () => {
+      if (document.visibilityState === 'hidden') this.pauseGame();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    this.cleanupFns.push(() => document.removeEventListener('visibilitychange', onVis));
+
+    this.input.on('pointerdown', () => {
+      if (this.gamePaused) this.resumeGame();
+    });
+
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      for (const fn of this.cleanupFns) fn();
+    });
+  }
+
+  update(_time: number, delta: number) {
+    if (this.gamePaused || this.engine.isOver) return;
+    this.engine.update(delta);
+    for (const c of this.engine.activeCustomers) {
+      this.views.get(c.id)?.updatePatience(c.patienceMs / c.patienceTotalMs);
+    }
+  }
+
+  // ---- input ----
+
+  private onChar(ch: string) {
+    if (this.gamePaused) {
+      this.resumeGame();
+      return;
+    }
+    this.engine.handleKey(ch);
+  }
+
+  // ---- engine event wiring ----
+
+  private wireEngineEvents() {
+    const e = this.engine.events;
+
+    e.on('customerArrived', ({ customer }) => {
+      this.orderTexts.set(customer.id, customer.order.text);
+      const view = new CustomerView(this, customer, this.slotX(customer.slot), this.counterY());
+      this.views.set(customer.id, view);
+    });
+
+    e.on('orderLocked', ({ customerId }) => {
+      this.views.get(customerId)?.setLocked(true);
+      this.hud.showOrder(this.orderTexts.get(customerId) ?? '', this.engine.typedCount);
+    });
+
+    e.on('orderProgress', ({ customerId, typedCount }) => {
+      this.hud.showOrder(this.orderTexts.get(customerId) ?? '', typedCount);
+    });
+
+    e.on('wordCompleted', ({ customerId }) => {
+      // Prep station hooks in here in the next task.
+      this.hud.showOrder(this.orderTexts.get(customerId) ?? '', this.engine.typedCount);
+    });
+
+    e.on('orderServed', ({ customerId }) => {
+      const view = this.views.get(customerId);
+      view?.serve(() => this.views.delete(customerId));
+      this.hud.setScore(this.engine.score);
+      this.hud.showOrder('', 0);
+    });
+
+    e.on('customerLeft', ({ customerId, strikes }) => {
+      const view = this.views.get(customerId);
+      view?.stormOut(() => this.views.delete(customerId));
+      this.hud.setStrikes(strikes);
+      if (this.engine.lockedCustomerId === null) this.hud.showOrder('', 0);
+      this.cameras.main.shake(150, 0.008);
+    });
+
+    e.on('mistake', () => {
+      this.hud.flashMistake();
+    });
+
+    e.on('shiftEnded', ({ result }) => {
+      this.time.delayedCall(700, () =>
+        this.scene.start('results', { config: this.config, result }),
+      );
+    });
+  }
+
+  // ---- layout & scenery ----
+
+  private slotX(slot: number): number {
+    const w = this.scale.width;
+    return w * (0.1 + (0.8 * (slot + 0.5)) / this.maxSlots);
+  }
+
+  private counterY(): number {
+    return this.scale.height * COUNTER_Y_FRACTION;
+  }
+
+  private drawDiner(width: number, height: number) {
+    const counterY = height * COUNTER_Y_FRACTION;
+    this.add.rectangle(0, 0, width, counterY, COLORS.wall).setOrigin(0);
     this.add
-      .text(width / 2, height * 0.4, `GAME: ${this.config.name}`, { fontFamily: FONT, fontSize: '28px', color: '#2e2a26' })
+      .text(width / 2, 24, "★ MEL'S DINER ★", {
+        fontFamily: FONT,
+        fontSize: '24px',
+        fontStyle: 'bold',
+        color: COLORS.red,
+      })
+      .setOrigin(0.5, 0);
+    this.add.rectangle(0, counterY, width, 18, COLORS.counterEdge).setOrigin(0);
+    this.add.rectangle(0, counterY + 18, width, height * 0.1, COLORS.counter).setOrigin(0);
+    this.add
+      .text(width / 2, 60, this.config.name, {
+        fontFamily: FONT,
+        fontSize: '16px',
+        color: COLORS.dark,
+      })
+      .setOrigin(0.5, 0);
+  }
+
+  // ---- pause ----
+
+  private buildPauseOverlay(width: number, height: number) {
+    const rect = this.add.rectangle(0, 0, width, height, 0x000000, 0.6).setOrigin(0);
+    const txt = this.add
+      .text(width / 2, height / 2, 'PAUSED\nBack to the grill? Press any key or tap.', {
+        fontFamily: FONT,
+        fontSize: '26px',
+        fontStyle: 'bold',
+        color: COLORS.cream,
+        align: 'center',
+      })
       .setOrigin(0.5);
-    makeButton(this, width / 2, height * 0.6, 'END (stub)', () =>
-      this.scene.start('results', {
-        config: this.config,
-        result: {
-          shiftId: this.config.id,
-          won: true,
-          score: 123,
-          served: 5,
-          strikes: 1,
-          accuracy: 0.95,
-          wpm: 30,
-          bestCombo: 3,
-          elapsedMs: 60_000,
-        },
-      }),
-    );
+    this.pauseOverlay = this.add.container(0, 0, [rect, txt]).setDepth(100).setVisible(false);
+  }
+
+  private pauseGame() {
+    if (this.gamePaused || this.engine.isOver) return;
+    this.gamePaused = true;
+    this.pauseOverlay.setVisible(true);
+  }
+
+  private resumeGame() {
+    this.gamePaused = false;
+    this.pauseOverlay.setVisible(false);
   }
 }
