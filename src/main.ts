@@ -19,7 +19,7 @@ fitToViewport();
 new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'app',
-  backgroundColor: '#fdf3e3',
+  backgroundColor: '#f4e8cf',
   scale: {
     mode: Phaser.Scale.RESIZE,
     autoCenter: Phaser.Scale.CENTER_BOTH,
