@@ -158,35 +158,35 @@ Expected: five `.woff2` files, each roughly 10–30 KB. (All four families are S
 
 - [ ] **Step 2: Declare @font-face and the new page background in index.html**
 
-Replace the `<style>` block in `index.html` with:
+Replace the `<style>` block in `index.html` with the following. Note the `%BASE_URL%` prefix — Vite substitutes it at build time, so the fonts still resolve if the app is ever deployed under a sub-path (e.g. GitHub Pages project sites with `base: '/repo-name/'`). A bare `/fonts/...` would 404 there.
 
 ```html
 <style>
   @font-face {
     font-family: 'Pacifico';
-    src: url('/fonts/pacifico.woff2') format('woff2');
+    src: url('%BASE_URL%fonts/pacifico.woff2') format('woff2');
     font-display: swap;
   }
   @font-face {
     font-family: 'Alfa Slab One';
-    src: url('/fonts/alfa-slab-one.woff2') format('woff2');
+    src: url('%BASE_URL%fonts/alfa-slab-one.woff2') format('woff2');
     font-display: swap;
   }
   @font-face {
     font-family: 'Oswald';
     font-weight: 500;
-    src: url('/fonts/oswald-500.woff2') format('woff2');
+    src: url('%BASE_URL%fonts/oswald-500.woff2') format('woff2');
     font-display: swap;
   }
   @font-face {
     font-family: 'Oswald';
     font-weight: 700;
-    src: url('/fonts/oswald-700.woff2') format('woff2');
+    src: url('%BASE_URL%fonts/oswald-700.woff2') format('woff2');
     font-display: swap;
   }
   @font-face {
     font-family: 'Special Elite';
-    src: url('/fonts/special-elite.woff2') format('woff2');
+    src: url('%BASE_URL%fonts/special-elite.woff2') format('woff2');
     font-display: swap;
   }
   html,
