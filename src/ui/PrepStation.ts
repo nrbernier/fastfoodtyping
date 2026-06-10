@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { COLORS, FONT } from './theme';
+import { COLORS, FONTS, makeTicket } from './theme';
 
 /**
  * The bowl on the prep counter. Completed words drop in as labeled ingredient
@@ -11,21 +11,30 @@ export class PrepStation {
   private bowl: Phaser.GameObjects.Graphics;
 
   constructor(private scene: Phaser.Scene, private x: number, private y: number) {
+    const backdrop = makeTicket(scene, 0, 0, '            \n            \n            ');
+    const label = scene.add
+      .text(0, -34, '★ NOW PREPARING ★', {
+        fontFamily: FONTS.sans,
+        fontSize: '11px',
+        fontStyle: 'bold',
+        color: COLORS.red,
+      })
+      .setOrigin(0.5);
     this.bowl = scene.add.graphics();
-    this.bowl.fillStyle(0xb0bec5, 1).fillEllipse(0, 0, 150, 44);
-    this.bowl.fillStyle(0x78909c, 1).fillEllipse(0, -6, 130, 30);
-    this.root = scene.add.container(x, y, [this.bowl]);
+    this.bowl.fillStyle(COLORS.counter, 1).fillEllipse(0, 0, 150, 44);
+    this.bowl.fillStyle(COLORS.counterEdge, 1).fillEllipse(0, -6, 130, 30);
+    this.root = scene.add.container(x, y, [backdrop, label, this.bowl]);
   }
 
   /** A labeled box tips over the bowl and pours powder. */
   dropBox(word: string) {
     const label = this.scene.add
       .text(0, 0, word.toUpperCase(), {
-        fontFamily: FONT,
+        fontFamily: FONTS.mono,
         fontSize: '14px',
         fontStyle: 'bold',
         color: COLORS.cream,
-        backgroundColor: '#8d6e63',
+        backgroundColor: COLORS.dark,
         padding: { x: 8, y: 5 },
       })
       .setOrigin(0.5);
@@ -53,7 +62,11 @@ export class PrepStation {
 
   /** The dish pops out of the bowl and slides to the customer. */
   serveDish(targetX: number, targetY: number, onDone?: () => void) {
-    const dish = this.scene.add.text(this.x, this.y - 20, '🍽️', { fontSize: '40px' }).setOrigin(0.5);
+    const g = this.scene.add.graphics();
+    g.fillStyle(COLORS.creamHex, 1).fillEllipse(0, 0, 56, 20);
+    g.lineStyle(2, COLORS.darkHex, 1).strokeEllipse(0, 0, 56, 20);
+    g.fillStyle(COLORS.redHex, 1).fillEllipse(0, -6, 28, 12);
+    const dish = this.scene.add.container(this.x, this.y - 20, [g]);
     this.scene.tweens.chain({
       targets: dish,
       tweens: [
@@ -87,7 +100,7 @@ export class PrepStation {
         this.x + Phaser.Math.Between(-20, 20),
         this.y - 60,
         Phaser.Math.Between(2, 4),
-        0xfff3e0,
+        COLORS.creamHex,
       );
       this.scene.tweens.add({
         targets: grain,
