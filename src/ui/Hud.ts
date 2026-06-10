@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { COLORS, FONT } from './theme';
+import { COLORS, FONTS } from './theme';
 
 export class Hud {
   private bg: Phaser.GameObjects.Rectangle;
@@ -12,16 +12,16 @@ export class Hud {
   constructor(private scene: Phaser.Scene) {
     this.bg = scene.add.rectangle(0, 0, 10, 10, COLORS.hud).setOrigin(0, 0);
     this.strikesText = scene.add
-      .text(0, 0, '', { fontFamily: FONT, fontSize: '22px', color: COLORS.cream })
+      .text(0, 0, '', { fontFamily: FONTS.slab, fontSize: '20px', color: COLORS.red })
       .setOrigin(0, 0.5);
     this.scoreText = scene.add
-      .text(0, 0, '$ 0', { fontFamily: FONT, fontSize: '22px', fontStyle: 'bold', color: COLORS.cream })
+      .text(0, 0, '$ 0', { fontFamily: FONTS.sans, fontSize: '22px', fontStyle: 'bold', color: COLORS.mustard })
       .setOrigin(1, 0.5);
     this.typedText = scene.add
-      .text(0, 0, '', { fontFamily: FONT, fontSize: '26px', fontStyle: 'bold', color: COLORS.green })
+      .text(0, 0, '', { fontFamily: FONTS.mono, fontSize: '24px', color: COLORS.green })
       .setOrigin(0, 0.5);
     this.restText = scene.add
-      .text(0, 0, '', { fontFamily: FONT, fontSize: '26px', fontStyle: 'bold', color: '#bdb3a4' })
+      .text(0, 0, '', { fontFamily: FONTS.mono, fontSize: '24px', color: '#a89c86' })
       .setOrigin(0, 0.5);
     this.orderContainer = scene.add.container(0, 0, [this.typedText, this.restText]);
     this.setStrikes(0);
@@ -37,7 +37,7 @@ export class Hud {
   }
 
   setStrikes(n: number) {
-    this.strikesText.setText('😠'.repeat(n) + ' · '.repeat(Math.max(0, 3 - n)));
+    this.strikesText.setText('✗'.repeat(n) + '·'.repeat(Math.max(0, 3 - n)));
   }
 
   setScore(n: number) {

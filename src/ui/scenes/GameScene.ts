@@ -5,7 +5,7 @@ import { attachPhysicalKeyboard, createHiddenInput, isTouchDevice, type HiddenIn
 import { CustomerView } from '../CustomerView';
 import { Hud } from '../Hud';
 import { PrepStation } from '../PrepStation';
-import { COLORS, FONT } from '../theme';
+import { COLORS, FONTS, makeStarburst } from '../theme';
 
 const HUD_TOP_FRACTION = 0.86;
 const COUNTER_Y_FRACTION = 0.58;
@@ -25,6 +25,8 @@ export class GameScene extends Phaser.Scene {
   private hidden?: HiddenInput;
   private pauseRect!: Phaser.GameObjects.Rectangle;
   private pauseText!: Phaser.GameObjects.Text;
+  private shiftElapsedMs = 0;
+  private clockText!: Phaser.GameObjects.Text;
 
   constructor() {
     super('game');
@@ -43,6 +45,7 @@ export class GameScene extends Phaser.Scene {
     this.cleanupFns = [];
     this.maxSlots = width < 700 ? 3 : 4;
     this.engine = new ShiftEngine({ config: this.config, maxCustomersCap: this.maxSlots });
+    this.shiftElapsedMs = 0;
 
     this.drawDiner(width, height);
     this.prep = new PrepStation(this, width / 2, height * 0.78);
@@ -91,6 +94,8 @@ export class GameScene extends Phaser.Scene {
 
   update(_time: number, delta: number) {
     if (this.gamePaused || this.engine.isOver) return;
+    this.shiftElapsedMs += delta;
+    this.clockText.setText(this.formatClock(this.config.durationMs - this.shiftElapsedMs));
     this.engine.update(delta);
     for (const c of this.engine.activeCustomers) {
       this.views.get(c.id)?.updatePatience(c.patienceMs / c.patienceTotalMs);
@@ -181,23 +186,63 @@ export class GameScene extends Phaser.Scene {
   private drawDiner(width: number, height: number) {
     const counterY = height * COUNTER_Y_FRACTION;
     this.add.rectangle(0, 0, width, counterY, COLORS.wall).setOrigin(0);
+
+    // neon script diner sign
     this.add
-      .text(width / 2, 24, "★ MEL'S DINER ★", {
-        fontFamily: FONT,
-        fontSize: '24px',
-        fontStyle: 'bold',
-        color: COLORS.red,
-      })
-      .setOrigin(0.5, 0);
-    this.add.rectangle(0, counterY, width, 18, COLORS.counterEdge).setOrigin(0);
-    this.add.rectangle(0, counterY + 18, width, height * 0.1, COLORS.counter).setOrigin(0);
-    this.add
-      .text(width / 2, 60, this.config.name, {
-        fontFamily: FONT,
-        fontSize: '16px',
+      .text(width / 2 + 2, 26, "Mel's Diner", {
+        fontFamily: FONTS.script,
+        fontSize: '30px',
         color: COLORS.dark,
       })
       .setOrigin(0.5, 0);
+    this.add
+      .text(width / 2, 24, "Mel's Diner", {
+        fontFamily: FONTS.script,
+        fontSize: '30px',
+        color: COLORS.mustard,
+      })
+      .setOrigin(0.5, 0);
+    this.add
+      .text(width / 2, 66, this.config.name.toUpperCase(), {
+        fontFamily: FONTS.sans,
+        fontSize: '15px',
+        fontStyle: 'bold',
+        color: COLORS.cream,
+      })
+      .setOrigin(0.5, 0);
+
+    // starburst wall clock (counts down the serving window)
+    const clock = makeStarburst(this, width - 64, 64, 44, '');
+    this.clockText = this.add
+      .text(0, 0, this.formatClock(this.config.durationMs), {
+        fontFamily: FONTS.sans,
+        fontSize: '17px',
+        fontStyle: 'bold',
+        color: COLORS.dark,
+      })
+      .setOrigin(0.5);
+    clock.add(this.clockText);
+
+    // counter with red trim
+    this.add.rectangle(0, counterY, width, 6, COLORS.redHex).setOrigin(0);
+    this.add.rectangle(0, counterY + 6, width, 12, COLORS.counterEdge).setOrigin(0);
+    this.add.rectangle(0, counterY + 18, width, height * 0.1, COLORS.counter).setOrigin(0);
+
+    // checkerboard floor between counter and prep area
+    const floorY = counterY + 18 + height * 0.1;
+    const size = 24;
+    const g = this.add.graphics();
+    for (let row = 0; row * size < height * HUD_TOP_FRACTION - floorY; row++) {
+      for (let col = 0; col * size < width; col++) {
+        g.fillStyle((row + col) % 2 === 0 ? COLORS.darkHex : COLORS.creamHex, 1);
+        g.fillRect(col * size, floorY + row * size, size, size);
+      }
+    }
+  }
+
+  private formatClock(remainingMs: number): string {
+    const s = Math.max(0, Math.ceil(remainingMs / 1000));
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
   }
 
   // ---- pause ----
@@ -206,7 +251,7 @@ export class GameScene extends Phaser.Scene {
     this.pauseRect = this.add.rectangle(0, 0, width, height, 0x000000, 0.6).setOrigin(0);
     this.pauseText = this.add
       .text(width / 2, height / 2, '', {
-        fontFamily: FONT,
+        fontFamily: FONTS.mono,
         fontSize: '26px',
         fontStyle: 'bold',
         color: COLORS.cream,
