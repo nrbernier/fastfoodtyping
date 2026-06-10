@@ -3207,6 +3207,15 @@ git commit -m "feat: PWA manifest, service worker, icon, and README"
 - **Balancing:** the difficulty numbers in `src/core/shifts.ts` are first-pass guesses; tune them by playtest after Task 15 when the full loop is playable. They are data-only changes.
 - **Renaming the game:** change the title strings in `TitleScene`, `index.html`, the PWA manifest, and README. Nothing structural depends on the name.
 
+## Code Review Follow-ups (post-Task 17)
+
+Found during full-branch review; not yet fixed.
+
+- **Important — `src/core/shiftEngine.ts`:** `this.customers` never removes resolved (served/stormed-out) entries, so it grows unboundedly for the life of a shift. Negligible for the 5 timed shifts, but Overtime (`durationMs: Infinity`) is endless, so a long run accumulates entries indefinitely. `activeCustomers` (a `.filter`) and `serve()` (a `.find`) both scan the full array each call. Fix: prune resolved customers once their event has been emitted, or switch to a `Map<id, CustomerState>` with delete-on-resolve.
+- **Minor — `src/core/text.ts`:** the accent-stripping regex uses literal combining-diacritic characters instead of the `̀-ͯ` escape range from the plan. Functionally correct (tests pass) but the literal characters are hard to eyeball/diff in an editor. Prefer the explicit escape form.
+- **Minor — `src/ui/scenes/GameScene.ts` `shiftEnded` handler:** the `this.time.delayedCall(700, …)` that transitions to the results scene isn't tracked in `cleanupFns`, so it could fire after `SHUTDOWN` in rare rapid-navigation cases. Track and cancel it on shutdown.
+- **Minor — `README.md` / build output:** `vite build` warns about a ~1.2MB main chunk — this is just Phaser and is expected, but undocumented. A one-line README note would prevent it being mistaken for a regression.
+
 
 
 
