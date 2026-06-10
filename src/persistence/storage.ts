@@ -10,6 +10,18 @@ export type StorageBacking = Pick<Storage, 'getItem' | 'setItem'>;
 const KEY = 'short-order-hero-save';
 const DEFAULTS: SaveData = { version: 1, unlockedShift: 0, highScores: {} };
 
+/** Type guard that verifies parsed JSON actually has the shape of SaveData. */
+export function isValidSaveData(x: unknown): x is SaveData {
+  if (typeof x !== 'object' || x === null) return false;
+  const obj = x as Record<string, unknown>;
+  if (obj.version !== 1) return false;
+  if (typeof obj.unlockedShift !== 'number') return false;
+  if (typeof obj.highScores !== 'object' || obj.highScores === null || Array.isArray(obj.highScores)) {
+    return false;
+  }
+  return true;
+}
+
 /** Returns window.localStorage if present and writable, else null. */
 export function safeLocalStorage(): StorageBacking | null {
   try {
@@ -35,8 +47,8 @@ export class SaveStore {
       try {
         const raw = this.backing?.getItem(KEY);
         if (raw) {
-          const parsed = JSON.parse(raw) as SaveData;
-          if (parsed && parsed.version === 1) this.memory = parsed;
+          const parsed = JSON.parse(raw) as unknown;
+          if (isValidSaveData(parsed)) this.memory = parsed;
         }
       } catch {
         // corrupted or unreadable -> keep defaults
