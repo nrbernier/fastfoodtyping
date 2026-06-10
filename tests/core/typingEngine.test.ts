@@ -68,4 +68,18 @@ describe('TypingEngine', () => {
   it('ignores multi-character keys', () => {
     expect(engine.handleKey('Shift', orders)).toEqual({ kind: 'ignored' });
   });
+
+  it('reports a mistake when there are no orders to match', () => {
+    expect(engine.handleKey('b', [])).toEqual({ kind: 'mistake', customerId: null });
+    expect(engine.locked).toBeNull();
+  });
+
+  it('recovers when the locked customer vanishes without release()', () => {
+    expect(engine.handleKey('m', orders)).toEqual({ kind: 'locked', customerId: 2 });
+    expect(engine.locked).toBe(2);
+
+    const remaining = orders.filter((o) => o.id !== 2);
+    expect(engine.handleKey('b', remaining)).toEqual({ kind: 'locked', customerId: 1 });
+    expect(engine.locked).toBe(1);
+  });
 });
