@@ -5,7 +5,7 @@ import type { Order, OrderParams, TierWeights } from './types';
 
 /** Pool words are not reused while inside this many recent uses. */
 const RECENT_CAP = 50;
-/** Attempts before relaxing the freshness constraint, then the letter constraint. */
+/** Attempts before the freshness (recent-words) constraint is dropped. */
 const FRESH_ATTEMPTS = 60;
 const MAX_ATTEMPTS = 80;
 
@@ -16,9 +16,10 @@ export class OrderGenerator {
 
   /**
    * Generate the next order. The order's first (normalized) letter will not be
-   * in `excludeFirstLetters` — guaranteeing unambiguous lock-on — unless the
-   * constraints are unsatisfiable after MAX_ATTEMPTS (practically unreachable
-   * with <=4 concurrent customers).
+   * in `excludeFirstLetters` — guaranteeing unambiguous lock-on — unless this
+   * first-letter constraint (checked every attempt, never relaxed) remains
+   * unsatisfiable after MAX_ATTEMPTS (practically unreachable with <=4
+   * concurrent customers).
    */
   next(params: OrderParams, excludeFirstLetters: ReadonlySet<string>): Order {
     let words: string[] = [];
