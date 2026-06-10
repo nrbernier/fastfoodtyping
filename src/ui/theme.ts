@@ -72,6 +72,7 @@ export function makeTicket(
   y: number,
   text: string,
   maxWidth = 220,
+  size?: { width: number; height: number },
 ): Phaser.GameObjects.Container {
   const label = scene.add
     .text(0, 0, text, {
@@ -82,8 +83,10 @@ export function makeTicket(
       wordWrap: { width: maxWidth - 24 },
     })
     .setOrigin(0.5);
-  const w = label.width + 24;
-  const h = label.height + 16;
+  // Size to the text by default; callers wanting a fixed card (e.g. an empty
+  // backdrop) pass an explicit size instead of padding the text with spaces.
+  const w = size?.width ?? label.width + 24;
+  const h = size?.height ?? label.height + 16;
   const shadow = scene.add.rectangle(3, 3, w, h, COLORS.darkHex, 0.35).setOrigin(0.5);
   const tail = scene.add
     .triangle(0, h / 2 + 4, 0, 0, 14, 0, 7, 9, COLORS.darkHex)

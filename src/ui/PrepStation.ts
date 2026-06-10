@@ -11,7 +11,7 @@ export class PrepStation {
   private bowl: Phaser.GameObjects.Graphics;
 
   constructor(private scene: Phaser.Scene, private x: number, private y: number) {
-    const backdrop = makeTicket(scene, 0, 0, '            \n            \n            ');
+    const backdrop = makeTicket(scene, 0, 0, '', 220, { width: 188, height: 96 });
     const label = scene.add
       .text(0, -34, '★ NOW PREPARING ★', {
         fontFamily: FONTS.sans,

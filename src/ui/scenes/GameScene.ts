@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { ShiftEngine } from '../../core/shiftEngine';
 import type { ShiftConfig } from '../../core/types';
 import { attachPhysicalKeyboard, createHiddenInput, isTouchDevice, type HiddenInput } from '../../input/inputAdapter';
+import { clockLabel } from '../clock';
 import { CustomerView } from '../CustomerView';
 import { Hud } from '../Hud';
 import { PrepStation } from '../PrepStation';
@@ -95,7 +96,7 @@ export class GameScene extends Phaser.Scene {
   update(_time: number, delta: number) {
     if (this.gamePaused || this.engine.isOver) return;
     this.shiftElapsedMs += delta;
-    this.clockText.setText(this.formatClock(this.config.durationMs - this.shiftElapsedMs));
+    this.clockText.setText(clockLabel(this.config.durationMs, this.shiftElapsedMs));
     this.engine.update(delta);
     for (const c of this.engine.activeCustomers) {
       this.views.get(c.id)?.updatePatience(c.patienceMs / c.patienceTotalMs);
@@ -214,7 +215,7 @@ export class GameScene extends Phaser.Scene {
     // starburst wall clock (counts down the serving window)
     const clock = makeStarburst(this, width - 64, 64, 44, '');
     this.clockText = this.add
-      .text(0, 0, this.formatClock(this.config.durationMs), {
+      .text(0, 0, clockLabel(this.config.durationMs, this.shiftElapsedMs), {
         fontFamily: FONTS.sans,
         fontSize: '17px',
         fontStyle: 'bold',
@@ -238,11 +239,6 @@ export class GameScene extends Phaser.Scene {
         g.fillRect(col * size, floorY + row * size, size, size);
       }
     }
-  }
-
-  private formatClock(remainingMs: number): string {
-    const s = Math.max(0, Math.ceil(remainingMs / 1000));
-    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
   }
 
   // ---- pause ----
