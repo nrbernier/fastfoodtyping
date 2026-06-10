@@ -3,8 +3,6 @@ import { COLORS, FONTS } from './palette';
 import { starburstPoints } from './geom';
 
 export { COLORS, FONTS };
-/** @deprecated transitional alias; scenes migrate to FONTS.* in later tasks */
-export const FONT = FONTS.sans;
 
 /** Diner-sign slab button with a hard offset shadow. */
 export function makeButton(

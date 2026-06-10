@@ -1,4 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="96" fill="#c0392b"/>
-  <text x="256" y="350" font-size="280" text-anchor="middle">🍔</text>
+  <rect width="512" height="512" rx="96" fill="#3fa8a1"/>
+  <g transform="translate(256 236) rotate(-10)">
+    <path id="burst" fill="#e3a51c" d="M0-170 24.6-138.7 61.5-156.3 71.1-119.1 112-122.1 105.1-81.7 143.8-68.1 122.4-33.2 152.2 0 122.4 33.2 143.8 68.1 105.1 81.7 112 122.1 71.1 119.1 61.5 156.3 24.6 138.7 0 170-24.6 138.7-61.5 156.3-71.1 119.1-112 122.1-105.1 81.7-143.8 68.1-122.4 33.2-152.2 0-122.4-33.2-143.8-68.1-105.1-81.7-112-122.1-71.1-119.1-61.5-156.3-24.6-138.7Z"/>
+    <text x="0" y="34" text-anchor="middle" font-family="Georgia, serif" font-weight="bold" font-size="104" fill="#26221e">SOH</text>
+  </g>
+  <g fill="none">
+    <rect x="48" y="408" width="416" height="56" fill="#f4e8cf"/>
+    <rect x="48" y="408" width="52" height="56" fill="#26221e"/>
+    <rect x="152" y="408" width="52" height="56" fill="#26221e"/>
+    <rect x="256" y="408" width="52" height="56" fill="#26221e"/>
+    <rect x="360" y="408" width="52" height="56" fill="#26221e"/>
+  </g>
 </svg>

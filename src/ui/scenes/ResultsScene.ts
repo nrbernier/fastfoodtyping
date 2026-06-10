@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { OVERTIME, SHIFTS } from '../../core/shifts';
 import type { ShiftConfig, ShiftResult } from '../../core/types';
 import { SaveStore, safeLocalStorage } from '../../persistence/storage';
-import { COLORS, FONT, makeButton } from '../theme';
+import { COLORS, FONTS, makeButton } from '../theme';
 
 export class ResultsScene extends Phaser.Scene {
   private config!: ShiftConfig;
@@ -25,7 +25,7 @@ export class ResultsScene extends Phaser.Scene {
     const shiftIndex = SHIFTS.findIndex((s) => s.id === r.shiftId);
     if (r.won && shiftIndex >= 0) store.unlockShift(shiftIndex + 1);
 
-    this.add.rectangle(0, 0, width, height, COLORS.creamHex).setOrigin(0);
+    this.add.rectangle(0, 0, width, height, COLORS.wall).setOrigin(0);
 
     const lines = [
       "      MEL'S DINER      ",
@@ -46,10 +46,10 @@ export class ResultsScene extends Phaser.Scene {
     ];
     this.add
       .text(width / 2, height * 0.08, lines.join('\n'), {
-        fontFamily: 'Courier, monospace',
-        fontSize: '18px',
+        fontFamily: FONTS.mono,
+        fontSize: '17px',
         color: COLORS.dark,
-        backgroundColor: COLORS.white,
+        backgroundColor: COLORS.cream,
         padding: { x: 18, y: 16 },
         align: 'left',
       })
