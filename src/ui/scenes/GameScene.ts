@@ -3,6 +3,7 @@ import { ShiftEngine } from '../../core/shiftEngine';
 import type { ShiftConfig } from '../../core/types';
 import { attachPhysicalKeyboard, createHiddenInput, isTouchDevice, type HiddenInput } from '../../input/inputAdapter';
 import { clockLabel } from '../clock';
+import { clockHandAngle } from '../geom';
 import { CustomerView } from '../CustomerView';
 import { Hud } from '../Hud';
 import { PrepStation } from '../PrepStation';
@@ -32,6 +33,7 @@ export class GameScene extends Phaser.Scene {
   private pauseText!: Phaser.GameObjects.Text;
   private shiftElapsedMs = 0;
   private clockText!: Phaser.GameObjects.Text;
+  private clockHand!: Phaser.GameObjects.Graphics;
   private backdrop!: DinerBackdrop;
 
   constructor() {
@@ -102,6 +104,7 @@ export class GameScene extends Phaser.Scene {
     if (this.gamePaused || this.engine.isOver) return;
     this.shiftElapsedMs += delta;
     this.clockText.setText(clockLabel(this.config.durationMs, this.shiftElapsedMs));
+    this.clockHand.setAngle(clockHandAngle(this.shiftElapsedMs, 60000) + 90);
     this.engine.update(delta);
     for (const c of this.engine.activeCustomers) {
       this.views.get(c.id)?.updatePatience(c.patienceMs / c.patienceTotalMs);
@@ -205,12 +208,16 @@ export class GameScene extends Phaser.Scene {
       fontFamily: FONTS.sans, fontSize: '15px', fontStyle: 'bold', color: COLORS.cream,
     }).setOrigin(0.5, 0);
 
-    // starburst wall clock (clock hand added in a later task)
+    // starburst wall clock
     const clock = makeStarburst(this, width - 64, 64, 44, '');
     this.clockText = this.add.text(0, 0, clockLabel(this.config.durationMs, this.shiftElapsedMs), {
       fontFamily: FONTS.sans, fontSize: '17px', fontStyle: 'bold', color: COLORS.dark,
     }).setOrigin(0.5);
     clock.add(this.clockText);
+
+    this.clockHand = this.add.graphics();
+    this.clockHand.lineStyle(2, COLORS.redHex, 1).lineBetween(0, 0, 0, -30);
+    clock.add(this.clockHand);
 
     // counter with red trim — explicit depth so it occludes customer legs (set later)
     this.add.container(0, 0, [

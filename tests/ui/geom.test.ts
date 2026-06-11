@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { perspectiveFloorQuads, starburstPoints } from '../../src/ui/geom';
+import { clockHandAngle, perspectiveFloorQuads, starburstPoints } from '../../src/ui/geom';
 
 describe('starburstPoints', () => {
   it('produces two points per spike (outer + inner)', () => {
@@ -44,5 +44,16 @@ describe('perspectiveFloorQuads', () => {
     expect(quads[1].dark).toBe(false);
     expect(quads[2].dark).toBe(false);
     expect(quads[3].dark).toBe(true);
+  });
+});
+
+describe('clockHandAngle', () => {
+  it('is -90deg (straight up) at the start and sweeps clockwise', () => {
+    expect(clockHandAngle(0, 60000)).toBeCloseTo(-90);
+    expect(clockHandAngle(15000, 60000)).toBeCloseTo(0);   // quarter -> right
+    expect(clockHandAngle(30000, 60000)).toBeCloseTo(90);  // half -> down
+  });
+  it('wraps each minute of the remaining window', () => {
+    expect(clockHandAngle(60000, 60000)).toBeCloseTo(-90);
   });
 });
