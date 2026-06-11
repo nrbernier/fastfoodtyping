@@ -19,6 +19,7 @@ export class DinerBackdrop {
 
     makeWindowBlinds(scene, width * 0.2, wallBottom * 0.42, 150, 110);
     makeMenuBoard(scene, width * 0.8, wallBottom * 0.46);
-    this.neon = makeNeonSign(scene, width * 0.5, wallBottom * 0.2, 'EAT');
+    // sits below the "Mel's Diner" title banner, clear of it and the counter tickets
+    this.neon = makeNeonSign(scene, width * 0.5, wallBottom * 0.32, 'EAT');
   }
 }
