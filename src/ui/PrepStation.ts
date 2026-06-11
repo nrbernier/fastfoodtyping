@@ -24,6 +24,15 @@ export class PrepStation {
     this.bowl.fillStyle(COLORS.counter, 1).fillEllipse(0, 0, 150, 44);
     this.bowl.fillStyle(COLORS.counterEdge, 1).fillEllipse(0, -6, 130, 30);
     this.root = scene.add.container(x, y, [backdrop, label, this.bowl]);
+    scene.time.addEvent({ delay: 900, loop: true, callback: () => this.steam() });
+  }
+
+  private steam() {
+    const wisp = this.scene.add.circle(this.x + Phaser.Math.Between(-16, 16), this.y - 30, 4, COLORS.creamHex, 0.5);
+    this.scene.tweens.add({
+      targets: wisp, y: this.y - 90, alpha: 0, scale: 1.8, duration: 1400, ease: 'Sine.Out',
+      onComplete: () => wisp.destroy(),
+    });
   }
 
   /** A labeled box tips over the bowl and pours powder. */
