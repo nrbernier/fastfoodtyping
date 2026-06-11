@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { OVERTIME, SHIFTS } from '../../core/shifts';
 import { SaveStore, safeLocalStorage } from '../../persistence/storage';
 import { COLORS, FONTS, makeButton, makeStarburst } from '../theme';
+import { applyPaperGrain } from '../texture';
 
 export class TitleScene extends Phaser.Scene {
   constructor() {
@@ -68,6 +69,8 @@ export class TitleScene extends Phaser.Scene {
         })
         .setOrigin(0.5);
     }
+
+    applyPaperGrain(this);
   }
 
   private drawCheckerboard(y: number, h: number) {
