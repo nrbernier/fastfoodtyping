@@ -1,0 +1,9 @@
+{
+  "id": "386ba4d0-680c-47ba-a2a4-0276648ab545",
+  "base": "digital_illustration",
+  "references": [
+    "/tmp/fcm-refs/waitress.png",
+    "/tmp/fcm-refs/tipman.png",
+    "/tmp/fcm-refs/pizza.png"
+  ]
+}
