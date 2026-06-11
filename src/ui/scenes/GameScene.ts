@@ -133,15 +133,15 @@ export class GameScene extends Phaser.Scene {
 
     e.on('orderLocked', ({ customerId }) => {
       this.views.get(customerId)?.setLocked(true);
-      this.hud.showOrder(this.orderTexts.get(customerId) ?? '', this.engine.typedCount);
+      this.views.get(customerId)?.updateTyping(this.engine.typedCount);
     });
 
     e.on('orderProgress', ({ customerId, typedCount }) => {
-      this.hud.showOrder(this.orderTexts.get(customerId) ?? '', typedCount);
+      this.views.get(customerId)?.updateTyping(typedCount);
     });
 
     e.on('wordCompleted', ({ customerId, wordIndex }) => {
-      this.hud.showOrder(this.orderTexts.get(customerId) ?? '', this.engine.typedCount);
+      this.views.get(customerId)?.updateTyping(this.engine.typedCount);
       const word = this.orderWords.get(customerId)?.[wordIndex];
       if (word) this.prep.dropBox(word);
     });
@@ -156,14 +156,12 @@ export class GameScene extends Phaser.Scene {
         view?.serve(() => this.views.delete(customerId));
       });
       this.hud.setScore(this.engine.score);
-      this.hud.showOrder('', 0);
     });
 
     e.on('customerLeft', ({ customerId, strikes }) => {
       const view = this.views.get(customerId);
       view?.stormOut(() => this.views.delete(customerId));
       this.hud.setStrikes(strikes);
-      if (this.engine.lockedCustomerId === null) this.hud.showOrder('', 0);
       this.cameras.main.shake(150, 0.008);
     });
 
