@@ -7,9 +7,12 @@ import { CustomerView } from '../CustomerView';
 import { Hud } from '../Hud';
 import { PrepStation } from '../PrepStation';
 import { COLORS, FONTS, makeStarburst } from '../theme';
+import { DinerBackdrop } from '../DinerBackdrop';
+import { drawPerspectiveFloor } from '../scenery';
 
 const HUD_TOP_FRACTION = 0.86;
 const COUNTER_Y_FRACTION = 0.58;
+const DEPTH = { backdrop: 0, customer: 5, counter: 10, prep: 12, hud: 20, overlay: 100 } as const;
 
 export class GameScene extends Phaser.Scene {
   private config!: ShiftConfig;
@@ -28,6 +31,7 @@ export class GameScene extends Phaser.Scene {
   private pauseText!: Phaser.GameObjects.Text;
   private shiftElapsedMs = 0;
   private clockText!: Phaser.GameObjects.Text;
+  private backdrop!: DinerBackdrop;
 
   constructor() {
     super('game');
@@ -186,59 +190,38 @@ export class GameScene extends Phaser.Scene {
 
   private drawDiner(width: number, height: number) {
     const counterY = height * COUNTER_Y_FRACTION;
-    this.add.rectangle(0, 0, width, counterY, COLORS.wall).setOrigin(0);
 
-    // neon script diner sign
-    this.add
-      .text(width / 2 + 2, 26, "Mel's Diner", {
-        fontFamily: FONTS.script,
-        fontSize: '30px',
-        color: COLORS.dark,
-      })
-      .setOrigin(0.5, 0);
-    this.add
-      .text(width / 2, 24, "Mel's Diner", {
-        fontFamily: FONTS.script,
-        fontSize: '30px',
-        color: COLORS.mustard,
-      })
-      .setOrigin(0.5, 0);
-    this.add
-      .text(width / 2, 66, this.config.name.toUpperCase(), {
-        fontFamily: FONTS.sans,
-        fontSize: '15px',
-        fontStyle: 'bold',
-        color: COLORS.cream,
-      })
-      .setOrigin(0.5, 0);
+    // wall scene (window, menu board, neon) behind everything
+    this.backdrop = new DinerBackdrop(this, width, counterY);
 
-    // starburst wall clock (counts down the serving window)
+    // neon script diner sign + subtitle
+    this.add.text(width / 2 + 2, 26, "Mel's Diner", {
+      fontFamily: FONTS.script, fontSize: '30px', color: COLORS.dark,
+    }).setOrigin(0.5, 0);
+    this.add.text(width / 2, 24, "Mel's Diner", {
+      fontFamily: FONTS.script, fontSize: '30px', color: COLORS.mustard,
+    }).setOrigin(0.5, 0);
+    this.add.text(width / 2, 66, this.config.name.toUpperCase(), {
+      fontFamily: FONTS.sans, fontSize: '15px', fontStyle: 'bold', color: COLORS.cream,
+    }).setOrigin(0.5, 0);
+
+    // starburst wall clock (clock hand added in a later task)
     const clock = makeStarburst(this, width - 64, 64, 44, '');
-    this.clockText = this.add
-      .text(0, 0, clockLabel(this.config.durationMs, this.shiftElapsedMs), {
-        fontFamily: FONTS.sans,
-        fontSize: '17px',
-        fontStyle: 'bold',
-        color: COLORS.dark,
-      })
-      .setOrigin(0.5);
+    this.clockText = this.add.text(0, 0, clockLabel(this.config.durationMs, this.shiftElapsedMs), {
+      fontFamily: FONTS.sans, fontSize: '17px', fontStyle: 'bold', color: COLORS.dark,
+    }).setOrigin(0.5);
     clock.add(this.clockText);
 
-    // counter with red trim
-    this.add.rectangle(0, counterY, width, 6, COLORS.redHex).setOrigin(0);
-    this.add.rectangle(0, counterY + 6, width, 12, COLORS.counterEdge).setOrigin(0);
-    this.add.rectangle(0, counterY + 18, width, height * 0.1, COLORS.counter).setOrigin(0);
+    // counter with red trim — explicit depth so it occludes customer legs (set later)
+    this.add.container(0, 0, [
+      this.add.rectangle(0, counterY, width, 6, COLORS.redHex).setOrigin(0),
+      this.add.rectangle(0, counterY + 6, width, 12, COLORS.counterEdge).setOrigin(0),
+      this.add.rectangle(0, counterY + 18, width, height * 0.1, COLORS.counter).setOrigin(0),
+    ]).setDepth(DEPTH.counter);
 
-    // checkerboard floor between counter and prep area
+    // receding checker floor between counter and HUD
     const floorY = counterY + 18 + height * 0.1;
-    const size = 24;
-    const g = this.add.graphics();
-    for (let row = 0; row * size < height * HUD_TOP_FRACTION - floorY; row++) {
-      for (let col = 0; col * size < width; col++) {
-        g.fillStyle((row + col) % 2 === 0 ? COLORS.darkHex : COLORS.creamHex, 1);
-        g.fillRect(col * size, floorY + row * size, size, size);
-      }
-    }
+    drawPerspectiveFloor(this, floorY, height * HUD_TOP_FRACTION, width);
   }
 
   // ---- pause ----
