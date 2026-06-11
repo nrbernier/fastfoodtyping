@@ -9,7 +9,7 @@ import { Hud } from '../Hud';
 import { PrepStation } from '../PrepStation';
 import { COLORS, FONTS, makeStarburst } from '../theme';
 import { DinerBackdrop } from '../DinerBackdrop';
-import { drawPerspectiveFloor } from '../scenery';
+import { drawPerspectiveFloor, makeCounterProp } from '../scenery';
 
 const HUD_TOP_FRACTION = 0.86;
 const COUNTER_Y_FRACTION = 0.58;
@@ -154,7 +154,7 @@ export class GameScene extends Phaser.Scene {
       if (word) this.prep.dropBox(word);
     });
 
-    e.on('orderServed', ({ customerId, finalWordIndex }) => {
+    e.on('orderServed', ({ customerId, tip, finalWordIndex }) => {
       const word = this.orderWords.get(customerId)?.[finalWordIndex];
       if (word) this.prep.dropBox(word);
       const view = this.views.get(customerId);
@@ -164,6 +164,10 @@ export class GameScene extends Phaser.Scene {
         view?.serve(() => this.views.delete(customerId));
       });
       this.hud.setScore(this.engine.score);
+      const tipLabel = this.add.text(tx, ty - 40, `+$${tip}`, {
+        fontFamily: FONTS.slab, fontSize: '22px', color: COLORS.mustard,
+      }).setOrigin(0.5).setDepth(DEPTH.hud);
+      this.tweens.add({ targets: tipLabel, y: ty - 90, alpha: 0, duration: 700, onComplete: () => tipLabel.destroy() });
     });
 
     e.on('customerLeft', ({ customerId, strikes }) => {
@@ -230,6 +234,11 @@ export class GameScene extends Phaser.Scene {
       this.add.rectangle(0, counterY + 6, width, 12, COLORS.counterEdge).setOrigin(0),
       this.add.rectangle(0, counterY + 18, width, height * 0.1, COLORS.counter).setOrigin(0),
     ]).setDepth(DEPTH.counter);
+
+    const propY = counterY + 14;
+    [0.12, 0.34, 0.66, 0.88].forEach((fx, i) =>
+      makeCounterProp(this, width * fx, propY, i).setDepth(DEPTH.counter + 1),
+    );
 
     // receding checker floor between counter and HUD
     const floorY = counterY + 18 + height * 0.1;
