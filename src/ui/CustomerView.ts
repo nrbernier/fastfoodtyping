@@ -32,6 +32,10 @@ export class CustomerView extends Phaser.GameObjects.Container {
 
     this.setScale(0);
     scene.tweens.add({ targets: this, scale: 1, duration: 250, ease: 'Back.Out' });
+    scene.tweens.add({
+      targets: this.sprite, y: '-=4', duration: 1100 + (customer.id % 5) * 90,
+      yoyo: true, repeat: -1, ease: 'Sine.InOut',
+    });
   }
 
   setLocked(locked: boolean) {

@@ -56,6 +56,11 @@ export class GameScene extends Phaser.Scene {
     this.shiftElapsedMs = 0;
 
     this.drawDiner(width, height);
+    this.time.addEvent({
+      delay: 2600, loop: true, callback: () => {
+        this.tweens.add({ targets: this.backdrop.neon, alpha: 0.35, duration: 60, yoyo: true, repeat: 1 });
+      },
+    });
     this.prep = new PrepStation(this, width / 2, height * 0.78);
     this.hud = new Hud(this);
     this.hud.layout(width, height, height * HUD_TOP_FRACTION);
