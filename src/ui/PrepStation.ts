@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { COLORS, FONTS, makeTicket } from './theme';
+import { makeDish } from './scenery';
 
 /**
  * The bowl on the prep counter. Completed words drop in as labeled ingredient
@@ -24,6 +25,15 @@ export class PrepStation {
     this.bowl.fillStyle(COLORS.counter, 1).fillEllipse(0, 0, 150, 44);
     this.bowl.fillStyle(COLORS.counterEdge, 1).fillEllipse(0, -6, 130, 30);
     this.root = scene.add.container(x, y, [backdrop, label, this.bowl]);
+    scene.time.addEvent({ delay: 900, loop: true, callback: () => this.steam() });
+  }
+
+  private steam() {
+    const wisp = this.scene.add.circle(this.x + Phaser.Math.Between(-16, 16), this.y - 30, 4, COLORS.creamHex, 0.5);
+    this.scene.tweens.add({
+      targets: wisp, y: this.y - 90, alpha: 0, scale: 1.8, duration: 1400, ease: 'Sine.Out',
+      onComplete: () => wisp.destroy(),
+    });
   }
 
   /** A labeled box tips over the bowl and pours powder. */
@@ -62,11 +72,8 @@ export class PrepStation {
 
   /** The dish pops out of the bowl and slides to the customer. */
   serveDish(targetX: number, targetY: number, onDone?: () => void) {
-    const g = this.scene.add.graphics();
-    g.fillStyle(COLORS.creamHex, 1).fillEllipse(0, 0, 56, 20);
-    g.lineStyle(2, COLORS.darkHex, 1).strokeEllipse(0, 0, 56, 20);
-    g.fillStyle(COLORS.redHex, 1).fillEllipse(0, -6, 28, 12);
-    const dish = this.scene.add.container(this.x, this.y - 20, [g]);
+    const dish = makeDish(this.scene, this.x, this.y - 20);
+    this.scene.tweens.add({ targets: dish, scaleX: 1.15, scaleY: 0.85, duration: 120, yoyo: true });
     this.scene.tweens.chain({
       targets: dish,
       tweens: [

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { CHARACTERS, PLACEHOLDER_KEY } from '../assets';
 import { COLORS, FONTS } from '../theme';
+import { buildPaperGrain } from '../texture';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -15,6 +16,7 @@ export class BootScene extends Phaser.Scene {
   }
 
   create() {
+    buildPaperGrain(this);
     this.makePlaceholderTexture();
     // Wait for webfonts so Phaser never rasterizes fallback fonts into text
     // objects. fonts.ready resolves even when a font fails — safe offline.

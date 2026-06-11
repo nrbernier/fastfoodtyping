@@ -1,15 +1,15 @@
 import Phaser from 'phaser';
 import type { CustomerState } from '../core/types';
 import { characterKeyFor, PLACEHOLDER_KEY } from './assets';
-import { COLORS, makeStarburst, makeTicket } from './theme';
+import { COLORS, makeLiveTicket, makeStarburst, type LiveTicket } from './theme';
 
-const SPRITE_HEIGHT = 120;
+const SPRITE_HEIGHT = 175;
 const BAR_Y = -(SPRITE_HEIGHT + 12);
 const TICKET_GAP = 30;
 
 export class CustomerView extends Phaser.GameObjects.Container {
   readonly customerId: number;
-  private bubble: Phaser.GameObjects.Container;
+  private ticket: LiveTicket;
   private bar: Phaser.GameObjects.Graphics;
   private sprite: Phaser.GameObjects.Image;
 
@@ -22,25 +22,33 @@ export class CustomerView extends Phaser.GameObjects.Container {
     this.sprite = scene.add.image(0, 0, key).setOrigin(0.5, 1);
     this.sprite.setScale(SPRITE_HEIGHT / this.sprite.height);
 
-    this.bubble = makeTicket(scene, 0, 0, customer.order.text);
+    this.ticket = makeLiveTicket(scene, 0, 0, customer.order.text);
     // place the ticket (its tail points down) just above the patience bar
-    this.bubble.setY(BAR_Y - TICKET_GAP - this.bubble.getBounds().height / 2);
+    this.ticket.container.setY(BAR_Y - TICKET_GAP - this.ticket.container.getBounds().height / 2);
 
     this.bar = scene.add.graphics();
-    this.add([this.bubble, this.bar, this.sprite]);
+    this.add([this.ticket.container, this.bar, this.sprite]);
     scene.add.existing(this);
 
     this.setScale(0);
     scene.tweens.add({ targets: this, scale: 1, duration: 250, ease: 'Back.Out' });
+    scene.tweens.add({
+      targets: this.sprite, y: '-=4', duration: 1100 + (customer.id % 5) * 90,
+      yoyo: true, repeat: -1, ease: 'Sine.InOut',
+    });
   }
 
   setLocked(locked: boolean) {
     this.scene.tweens.add({
-      targets: this.bubble,
+      targets: this.ticket.container,
       scaleX: locked ? 1.12 : 1,
       scaleY: locked ? 1.12 : 1,
       duration: 120,
     });
+  }
+
+  updateTyping(typedCount: number) {
+    this.ticket.update(typedCount);
   }
 
   updatePatience(fraction: number) {
@@ -52,6 +60,12 @@ export class CustomerView extends Phaser.GameObjects.Container {
     this.bar.fillStyle(color, 1).fillRect(-40, BAR_Y, 80 * f, 8);
     // jitter when about to storm out
     this.sprite.setAngle(f < 0.2 ? Math.sin(this.scene.time.now / 50) * 4 : 0);
+  }
+
+  protected preDestroy() {
+    this.scene.tweens.killTweensOf(this.sprite);
+    this.scene.tweens.killTweensOf(this.ticket.container);
+    super.preDestroy();
   }
 
   serve(onDone: () => void) {

@@ -3,6 +3,7 @@ import { OVERTIME, SHIFTS } from '../../core/shifts';
 import type { ShiftConfig, ShiftResult } from '../../core/types';
 import { SaveStore, safeLocalStorage } from '../../persistence/storage';
 import { COLORS, FONTS, makeButton } from '../theme';
+import { applyPaperGrain } from '../texture';
 
 export class ResultsScene extends Phaser.Scene {
   private config!: ShiftConfig;
@@ -73,5 +74,7 @@ export class ResultsScene extends Phaser.Scene {
     makeButton(this, width * 0.5, buttonsY + Math.min(64, height * 0.1), 'MENU', () =>
       this.scene.start('title'),
     );
+
+    applyPaperGrain(this);
   }
 }

@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { SHIFTS } from '../../core/shifts';
 import { SaveStore, safeLocalStorage } from '../../persistence/storage';
 import { COLORS, FONTS, makeButton } from '../theme';
+import { applyPaperGrain } from '../texture';
 
 export class ShiftSelectScene extends Phaser.Scene {
   constructor() {
@@ -61,5 +62,7 @@ export class ShiftSelectScene extends Phaser.Scene {
     });
 
     makeButton(this, width / 2, height * 0.9, 'BACK', () => this.scene.start('title'));
+
+    applyPaperGrain(this);
   }
 }
