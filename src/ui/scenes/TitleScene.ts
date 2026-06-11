@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import { OVERTIME, SHIFTS } from '../../core/shifts';
 import { SaveStore, safeLocalStorage } from '../../persistence/storage';
 import { COLORS, FONTS, makeButton, makeStarburst } from '../theme';
+import { applyPaperGrain } from '../texture';
+import { CHARACTERS, PLACEHOLDER_KEY } from '../assets';
 
 export class TitleScene extends Phaser.Scene {
   constructor() {
@@ -17,6 +19,23 @@ export class TitleScene extends Phaser.Scene {
     this.add.rectangle(0, 0, width, height, COLORS.wall).setOrigin(0);
     this.drawCheckerboard(height - 64, 64);
 
+    // cast lineup standing on the checkerboard strip with a gentle idle bob
+    const lineup = CHARACTERS.slice(0, 5);
+    lineup.forEach((c, i) => {
+      const key = this.textures.exists(c.key) ? c.key : PLACEHOLDER_KEY;
+      const x = width * (0.16 + 0.17 * i);
+      const img = this.add.image(x, height - 60, key).setOrigin(0.5, 1);
+      img.setScale(Math.min(1, 150 / img.height));
+      this.tweens.add({
+        targets: img,
+        y: height - 64,
+        duration: 1200 + i * 120,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.InOut',
+      });
+    });
+
     // script logo with hard offset shadow, slightly rotated
     this.add
       .text(width / 2 + 3, height * 0.2 + 3, 'Short-Order Hero', {
@@ -26,7 +45,7 @@ export class TitleScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setAngle(-4);
-    this.add
+    const logo = this.add
       .text(width / 2, height * 0.2, 'Short-Order Hero', {
         fontFamily: FONTS.script,
         fontSize: '56px',
@@ -34,6 +53,14 @@ export class TitleScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setAngle(-4);
+
+    // occasional neon flicker on the logo
+    this.time.addEvent({
+      delay: 3000,
+      loop: true,
+      callback: () =>
+        this.tweens.add({ targets: logo, alpha: 0.4, duration: 70, yoyo: true, repeat: 1 }),
+    });
 
     this.add
       .text(width / 2, height * 0.34, '★ TYPE FAST — SERVE WEIRD ★', {
@@ -68,6 +95,8 @@ export class TitleScene extends Phaser.Scene {
         })
         .setOrigin(0.5);
     }
+
+    applyPaperGrain(this);
   }
 
   private drawCheckerboard(y: number, h: number) {

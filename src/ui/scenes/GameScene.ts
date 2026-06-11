@@ -3,19 +3,24 @@ import { ShiftEngine } from '../../core/shiftEngine';
 import type { ShiftConfig } from '../../core/types';
 import { attachPhysicalKeyboard, createHiddenInput, isTouchDevice, type HiddenInput } from '../../input/inputAdapter';
 import { clockLabel } from '../clock';
+import { clockHandAngle } from '../geom';
 import { CustomerView } from '../CustomerView';
 import { Hud } from '../Hud';
 import { PrepStation } from '../PrepStation';
 import { COLORS, FONTS, makeStarburst } from '../theme';
+import { DinerBackdrop } from '../DinerBackdrop';
+import { drawPerspectiveFloor, makeCounterProp } from '../scenery';
+import { applyPaperGrain } from '../texture';
 
 const HUD_TOP_FRACTION = 0.86;
 const COUNTER_Y_FRACTION = 0.58;
+const DEPTH = { backdrop: 0, customer: 5, counter: 10, prep: 12, hud: 20, overlay: 100 } as const;
+const CUSTOMER_SINK = 36; // px the customer's feet drop behind the counter, so it occludes their legs
 
 export class GameScene extends Phaser.Scene {
   private config!: ShiftConfig;
   private engine!: ShiftEngine;
   private views = new Map<number, CustomerView>();
-  private orderTexts = new Map<number, string>();
   private orderWords = new Map<number, string[]>();
   private hud!: Hud;
   private prep!: PrepStation;
@@ -28,6 +33,8 @@ export class GameScene extends Phaser.Scene {
   private pauseText!: Phaser.GameObjects.Text;
   private shiftElapsedMs = 0;
   private clockText!: Phaser.GameObjects.Text;
+  private clockHand!: Phaser.GameObjects.Graphics;
+  private backdrop!: DinerBackdrop;
 
   constructor() {
     super('game');
@@ -40,7 +47,6 @@ export class GameScene extends Phaser.Scene {
   create() {
     const { width, height } = this.scale;
     this.views.clear();
-    this.orderTexts.clear();
     this.orderWords.clear();
     this.gamePaused = false;
     this.cleanupFns = [];
@@ -49,10 +55,16 @@ export class GameScene extends Phaser.Scene {
     this.shiftElapsedMs = 0;
 
     this.drawDiner(width, height);
+    this.time.addEvent({
+      delay: 2600, loop: true, callback: () => {
+        this.tweens.add({ targets: this.backdrop.neon, alpha: 0.35, duration: 60, yoyo: true, repeat: 1 });
+      },
+    });
     this.prep = new PrepStation(this, width / 2, height * 0.78);
     this.hud = new Hud(this);
     this.hud.layout(width, height, height * HUD_TOP_FRACTION);
     this.buildPauseOverlay(width, height);
+    applyPaperGrain(this);
 
     this.wireEngineEvents();
 
@@ -97,6 +109,7 @@ export class GameScene extends Phaser.Scene {
     if (this.gamePaused || this.engine.isOver) return;
     this.shiftElapsedMs += delta;
     this.clockText.setText(clockLabel(this.config.durationMs, this.shiftElapsedMs));
+    this.clockHand.setAngle(clockHandAngle(this.shiftElapsedMs, 60000) + 90);
     this.engine.update(delta);
     for (const c of this.engine.activeCustomers) {
       this.views.get(c.id)?.updatePatience(c.patienceMs / c.patienceTotalMs);
@@ -119,28 +132,28 @@ export class GameScene extends Phaser.Scene {
     const e = this.engine.events;
 
     e.on('customerArrived', ({ customer }) => {
-      this.orderTexts.set(customer.id, customer.order.text);
       this.orderWords.set(customer.id, customer.order.words);
-      const view = new CustomerView(this, customer, this.slotX(customer.slot), this.counterY());
+      const view = new CustomerView(this, customer, this.slotX(customer.slot), this.counterY() + CUSTOMER_SINK);
+      view.setDepth(DEPTH.customer);
       this.views.set(customer.id, view);
     });
 
     e.on('orderLocked', ({ customerId }) => {
       this.views.get(customerId)?.setLocked(true);
-      this.hud.showOrder(this.orderTexts.get(customerId) ?? '', this.engine.typedCount);
+      this.views.get(customerId)?.updateTyping(this.engine.typedCount);
     });
 
     e.on('orderProgress', ({ customerId, typedCount }) => {
-      this.hud.showOrder(this.orderTexts.get(customerId) ?? '', typedCount);
+      this.views.get(customerId)?.updateTyping(typedCount);
     });
 
     e.on('wordCompleted', ({ customerId, wordIndex }) => {
-      this.hud.showOrder(this.orderTexts.get(customerId) ?? '', this.engine.typedCount);
+      this.views.get(customerId)?.updateTyping(this.engine.typedCount);
       const word = this.orderWords.get(customerId)?.[wordIndex];
       if (word) this.prep.dropBox(word);
     });
 
-    e.on('orderServed', ({ customerId, finalWordIndex }) => {
+    e.on('orderServed', ({ customerId, tip, finalWordIndex }) => {
       const word = this.orderWords.get(customerId)?.[finalWordIndex];
       if (word) this.prep.dropBox(word);
       const view = this.views.get(customerId);
@@ -150,14 +163,16 @@ export class GameScene extends Phaser.Scene {
         view?.serve(() => this.views.delete(customerId));
       });
       this.hud.setScore(this.engine.score);
-      this.hud.showOrder('', 0);
+      const tipLabel = this.add.text(tx, ty - 40, `+$${tip}`, {
+        fontFamily: FONTS.slab, fontSize: '22px', color: COLORS.mustard,
+      }).setOrigin(0.5).setDepth(DEPTH.hud);
+      this.tweens.add({ targets: tipLabel, y: ty - 90, alpha: 0, duration: 700, onComplete: () => tipLabel.destroy() });
     });
 
     e.on('customerLeft', ({ customerId, strikes }) => {
       const view = this.views.get(customerId);
       view?.stormOut(() => this.views.delete(customerId));
       this.hud.setStrikes(strikes);
-      if (this.engine.lockedCustomerId === null) this.hud.showOrder('', 0);
       this.cameras.main.shake(150, 0.008);
     });
 
@@ -186,59 +201,47 @@ export class GameScene extends Phaser.Scene {
 
   private drawDiner(width: number, height: number) {
     const counterY = height * COUNTER_Y_FRACTION;
-    this.add.rectangle(0, 0, width, counterY, COLORS.wall).setOrigin(0);
 
-    // neon script diner sign
-    this.add
-      .text(width / 2 + 2, 26, "Mel's Diner", {
-        fontFamily: FONTS.script,
-        fontSize: '30px',
-        color: COLORS.dark,
-      })
-      .setOrigin(0.5, 0);
-    this.add
-      .text(width / 2, 24, "Mel's Diner", {
-        fontFamily: FONTS.script,
-        fontSize: '30px',
-        color: COLORS.mustard,
-      })
-      .setOrigin(0.5, 0);
-    this.add
-      .text(width / 2, 66, this.config.name.toUpperCase(), {
-        fontFamily: FONTS.sans,
-        fontSize: '15px',
-        fontStyle: 'bold',
-        color: COLORS.cream,
-      })
-      .setOrigin(0.5, 0);
+    // wall scene (window, menu board, neon) behind everything
+    this.backdrop = new DinerBackdrop(this, width, counterY);
 
-    // starburst wall clock (counts down the serving window)
+    // neon script diner sign + subtitle
+    this.add.text(width / 2 + 2, 26, "Mel's Diner", {
+      fontFamily: FONTS.script, fontSize: '30px', color: COLORS.dark,
+    }).setOrigin(0.5, 0);
+    this.add.text(width / 2, 24, "Mel's Diner", {
+      fontFamily: FONTS.script, fontSize: '30px', color: COLORS.mustard,
+    }).setOrigin(0.5, 0);
+    this.add.text(width / 2, 66, this.config.name.toUpperCase(), {
+      fontFamily: FONTS.sans, fontSize: '15px', fontStyle: 'bold', color: COLORS.cream,
+    }).setOrigin(0.5, 0);
+
+    // starburst wall clock
     const clock = makeStarburst(this, width - 64, 64, 44, '');
-    this.clockText = this.add
-      .text(0, 0, clockLabel(this.config.durationMs, this.shiftElapsedMs), {
-        fontFamily: FONTS.sans,
-        fontSize: '17px',
-        fontStyle: 'bold',
-        color: COLORS.dark,
-      })
-      .setOrigin(0.5);
+    this.clockText = this.add.text(0, 0, clockLabel(this.config.durationMs, this.shiftElapsedMs), {
+      fontFamily: FONTS.sans, fontSize: '17px', fontStyle: 'bold', color: COLORS.dark,
+    }).setOrigin(0.5);
     clock.add(this.clockText);
 
-    // counter with red trim
-    this.add.rectangle(0, counterY, width, 6, COLORS.redHex).setOrigin(0);
-    this.add.rectangle(0, counterY + 6, width, 12, COLORS.counterEdge).setOrigin(0);
-    this.add.rectangle(0, counterY + 18, width, height * 0.1, COLORS.counter).setOrigin(0);
+    this.clockHand = this.add.graphics();
+    this.clockHand.lineStyle(2, COLORS.redHex, 1).lineBetween(0, 0, 0, -30);
+    clock.add(this.clockHand);
 
-    // checkerboard floor between counter and prep area
+    // counter with red trim — explicit depth so it occludes customer legs (set later)
+    this.add.container(0, 0, [
+      this.add.rectangle(0, counterY, width, 6, COLORS.redHex).setOrigin(0),
+      this.add.rectangle(0, counterY + 6, width, 12, COLORS.counterEdge).setOrigin(0),
+      this.add.rectangle(0, counterY + 18, width, height * 0.1, COLORS.counter).setOrigin(0),
+    ]).setDepth(DEPTH.counter);
+
+    const propY = counterY + 14;
+    [0.12, 0.34, 0.66, 0.88].forEach((fx, i) =>
+      makeCounterProp(this, width * fx, propY, i).setDepth(DEPTH.counter + 1),
+    );
+
+    // receding checker floor between counter and HUD
     const floorY = counterY + 18 + height * 0.1;
-    const size = 24;
-    const g = this.add.graphics();
-    for (let row = 0; row * size < height * HUD_TOP_FRACTION - floorY; row++) {
-      for (let col = 0; col * size < width; col++) {
-        g.fillStyle((row + col) % 2 === 0 ? COLORS.darkHex : COLORS.creamHex, 1);
-        g.fillRect(col * size, floorY + row * size, size, size);
-      }
-    }
+    drawPerspectiveFloor(this, floorY, height * HUD_TOP_FRACTION, width);
   }
 
   // ---- pause ----
@@ -254,7 +257,7 @@ export class GameScene extends Phaser.Scene {
         align: 'center',
       })
       .setOrigin(0.5);
-    this.pauseOverlay = this.add.container(0, 0, [this.pauseRect, this.pauseText]).setDepth(100).setVisible(false);
+    this.pauseOverlay = this.add.container(0, 0, [this.pauseRect, this.pauseText]).setDepth(1100).setVisible(false);
   }
 
   private pauseGame(message = 'PAUSED\nBack to the grill? Press any key or tap.') {
