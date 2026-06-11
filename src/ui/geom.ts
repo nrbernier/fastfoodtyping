@@ -77,3 +77,9 @@ export function perspectiveFloorQuads(p: FloorParams): FloorQuad[] {
   }
   return quads;
 }
+
+/** Degrees for a sweeping second hand: -90 (up) at t=0, clockwise, wraps each `period` ms. */
+export function clockHandAngle(elapsedMs: number, periodMs: number): number {
+  const frac = ((elapsedMs % periodMs) + periodMs) % periodMs / periodMs;
+  return -90 + frac * 360;
+}
