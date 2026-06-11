@@ -31,6 +31,8 @@ export function applyPaperGrain(scene: Phaser.Scene): Phaser.GameObjects.TileSpr
     .setBlendMode(Phaser.BlendModes.MULTIPLY)
     .setAlpha(0.5);
   grain.setActive(false);
-  scene.scale.on(Phaser.Scale.Events.RESIZE, () => grain.setSize(scene.scale.width, scene.scale.height));
+  const onResize = () => grain.setSize(scene.scale.width, scene.scale.height);
+  scene.scale.on(Phaser.Scale.Events.RESIZE, onResize);
+  scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => scene.scale.off(Phaser.Scale.Events.RESIZE, onResize));
   return grain;
 }

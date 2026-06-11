@@ -21,7 +21,6 @@ export class GameScene extends Phaser.Scene {
   private config!: ShiftConfig;
   private engine!: ShiftEngine;
   private views = new Map<number, CustomerView>();
-  private orderTexts = new Map<number, string>();
   private orderWords = new Map<number, string[]>();
   private hud!: Hud;
   private prep!: PrepStation;
@@ -48,7 +47,6 @@ export class GameScene extends Phaser.Scene {
   create() {
     const { width, height } = this.scale;
     this.views.clear();
-    this.orderTexts.clear();
     this.orderWords.clear();
     this.gamePaused = false;
     this.cleanupFns = [];
@@ -134,7 +132,6 @@ export class GameScene extends Phaser.Scene {
     const e = this.engine.events;
 
     e.on('customerArrived', ({ customer }) => {
-      this.orderTexts.set(customer.id, customer.order.text);
       this.orderWords.set(customer.id, customer.order.words);
       const view = new CustomerView(this, customer, this.slotX(customer.slot), this.counterY() + CUSTOMER_SINK);
       view.setDepth(DEPTH.customer);
