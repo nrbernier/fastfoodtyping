@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { COLORS, FONTS, makeTicket } from './theme';
+import { makeDish } from './scenery';
 
 /**
  * The bowl on the prep counter. Completed words drop in as labeled ingredient
@@ -71,11 +72,8 @@ export class PrepStation {
 
   /** The dish pops out of the bowl and slides to the customer. */
   serveDish(targetX: number, targetY: number, onDone?: () => void) {
-    const g = this.scene.add.graphics();
-    g.fillStyle(COLORS.creamHex, 1).fillEllipse(0, 0, 56, 20);
-    g.lineStyle(2, COLORS.darkHex, 1).strokeEllipse(0, 0, 56, 20);
-    g.fillStyle(COLORS.redHex, 1).fillEllipse(0, -6, 28, 12);
-    const dish = this.scene.add.container(this.x, this.y - 20, [g]);
+    const dish = makeDish(this.scene, this.x, this.y - 20);
+    this.scene.tweens.add({ targets: dish, scaleX: 1.15, scaleY: 0.85, duration: 120, yoyo: true });
     this.scene.tweens.chain({
       targets: dish,
       tweens: [
