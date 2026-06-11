@@ -13,6 +13,7 @@ import { drawPerspectiveFloor } from '../scenery';
 const HUD_TOP_FRACTION = 0.86;
 const COUNTER_Y_FRACTION = 0.58;
 const DEPTH = { backdrop: 0, customer: 5, counter: 10, prep: 12, hud: 20, overlay: 100 } as const;
+const CUSTOMER_SINK = 36; // px the customer's feet drop behind the counter, so it occludes their legs
 
 export class GameScene extends Phaser.Scene {
   private config!: ShiftConfig;
@@ -125,7 +126,8 @@ export class GameScene extends Phaser.Scene {
     e.on('customerArrived', ({ customer }) => {
       this.orderTexts.set(customer.id, customer.order.text);
       this.orderWords.set(customer.id, customer.order.words);
-      const view = new CustomerView(this, customer, this.slotX(customer.slot), this.counterY());
+      const view = new CustomerView(this, customer, this.slotX(customer.slot), this.counterY() + CUSTOMER_SINK);
+      view.setDepth(DEPTH.customer);
       this.views.set(customer.id, view);
     });
 
