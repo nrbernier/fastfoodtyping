@@ -10,6 +10,7 @@ import { PrepStation } from '../PrepStation';
 import { COLORS, FONTS, makeStarburst } from '../theme';
 import { DinerBackdrop } from '../DinerBackdrop';
 import { drawPerspectiveFloor, makeCounterProp } from '../scenery';
+import { applyPaperGrain } from '../texture';
 
 const HUD_TOP_FRACTION = 0.86;
 const COUNTER_Y_FRACTION = 0.58;
@@ -65,6 +66,7 @@ export class GameScene extends Phaser.Scene {
     this.hud = new Hud(this);
     this.hud.layout(width, height, height * HUD_TOP_FRACTION);
     this.buildPauseOverlay(width, height);
+    applyPaperGrain(this);
 
     this.wireEngineEvents();
 
@@ -258,7 +260,7 @@ export class GameScene extends Phaser.Scene {
         align: 'center',
       })
       .setOrigin(0.5);
-    this.pauseOverlay = this.add.container(0, 0, [this.pauseRect, this.pauseText]).setDepth(100).setVisible(false);
+    this.pauseOverlay = this.add.container(0, 0, [this.pauseRect, this.pauseText]).setDepth(1100).setVisible(false);
   }
 
   private pauseGame(message = 'PAUSED\nBack to the grill? Press any key or tap.') {
