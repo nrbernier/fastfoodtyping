@@ -62,6 +62,12 @@ export class CustomerView extends Phaser.GameObjects.Container {
     this.sprite.setAngle(f < 0.2 ? Math.sin(this.scene.time.now / 50) * 4 : 0);
   }
 
+  protected preDestroy() {
+    this.scene.tweens.killTweensOf(this.sprite);
+    this.scene.tweens.killTweensOf(this.ticket.container);
+    super.preDestroy();
+  }
+
   serve(onDone: () => void) {
     this.scene.tweens.add({
       targets: this,
