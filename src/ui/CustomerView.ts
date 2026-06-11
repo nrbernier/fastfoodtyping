@@ -3,7 +3,7 @@ import type { CustomerState } from '../core/types';
 import { characterKeyFor, PLACEHOLDER_KEY } from './assets';
 import { COLORS, makeStarburst, makeTicket } from './theme';
 
-const SPRITE_HEIGHT = 120;
+const SPRITE_HEIGHT = 175;
 const BAR_Y = -(SPRITE_HEIGHT + 12);
 const TICKET_GAP = 30;
 
