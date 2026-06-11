@@ -83,3 +83,13 @@ export function clockHandAngle(elapsedMs: number, periodMs: number): number {
   const frac = ((elapsedMs % periodMs) + periodMs) % periodMs / periodMs;
   return -90 + frac * 360;
 }
+
+/** Flattened-ellipse plate ring sampled as points (radius = plate half-width). */
+export function dishOutline(radius: number, samples = 16): Point[] {
+  const pts: Point[] = [];
+  for (let i = 0; i < samples; i++) {
+    const a = (i / samples) * Math.PI * 2;
+    pts.push({ x: Math.cos(a) * radius, y: Math.sin(a) * radius * 0.36 });
+  }
+  return pts;
+}

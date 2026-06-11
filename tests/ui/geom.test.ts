@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clockHandAngle, perspectiveFloorQuads, starburstPoints } from '../../src/ui/geom';
+import { clockHandAngle, dishOutline, perspectiveFloorQuads, starburstPoints } from '../../src/ui/geom';
 
 describe('starburstPoints', () => {
   it('produces two points per spike (outer + inner)', () => {
@@ -55,5 +55,15 @@ describe('clockHandAngle', () => {
   });
   it('wraps each minute of the remaining window', () => {
     expect(clockHandAngle(60000, 60000)).toBeCloseTo(-90);
+  });
+});
+
+describe('dishOutline', () => {
+  it('returns a closed plate ring wider than tall', () => {
+    const pts = dishOutline(60);
+    expect(pts.length).toBeGreaterThan(8);
+    const xs = pts.map((p) => p.x);
+    const ys = pts.map((p) => p.y);
+    expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(Math.max(...ys) - Math.min(...ys));
   });
 });

@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { COLORS } from './palette';
 import { FONTS } from './theme';
-import { perspectiveFloorQuads } from './geom';
+import { dishOutline, perspectiveFloorQuads } from './geom';
 
 const FLOOR_DARK = 0x2f6e6a;  // dark teal — recedes instead of vibrating
 const FLOOR_LIGHT = COLORS.creamHex;
@@ -81,4 +81,49 @@ export function makeNeonSign(
     .setAlpha(0.35)
     .setScale(1.08);
   return scene.add.container(x, y, [glow, tube]);
+}
+
+/** A plated burger/shake that pops out of the bowl. */
+export function makeDish(scene: Phaser.Scene, x: number, y: number): Phaser.GameObjects.Container {
+  const plate = scene.add.graphics();
+  const ring = dishOutline(30).map((p) => new Phaser.Math.Vector2(p.x, p.y));
+  plate.fillStyle(COLORS.creamHex, 1).fillPoints(ring, true);
+  plate.lineStyle(2, COLORS.darkHex, 1).strokePoints(ring, true);
+  const food = scene.add.graphics();
+  food.fillStyle(COLORS.redHex, 1).fillEllipse(0, -5, 30, 13);   // patty
+  food.fillStyle(COLORS.mustardHex, 1).fillEllipse(0, -10, 24, 8); // bun top
+  return scene.add.container(x, y, [plate, food]);
+}
+
+/** Small counter prop selected by index (ketchup, napkins, cake stand, cup). */
+export function makeCounterProp(scene: Phaser.Scene, x: number, y: number, kind: number): Phaser.GameObjects.Container {
+  const g = scene.add.graphics();
+  switch (kind % 4) {
+    case 0: // ketchup bottle
+      g.fillStyle(COLORS.redHex, 1).fillRoundedRect(-6, -22, 12, 22, 3);
+      g.fillStyle(COLORS.darkHex, 1).fillRect(-3, -28, 6, 6);
+      break;
+    case 1: // napkin dispenser
+      g.fillStyle(COLORS.counterEdge, 1).fillRect(-12, -14, 24, 14);
+      g.fillStyle(COLORS.creamHex, 1).fillRect(-3, -20, 6, 8);
+      break;
+    case 2: // cake stand
+      g.fillStyle(COLORS.creamHex, 1).fillEllipse(0, 0, 34, 8);
+      g.fillStyle(COLORS.mustardHex, 1).fillTriangle(-12, 0, 12, 0, 0, -20);
+      break;
+    default: // coffee cup
+      g.fillStyle(COLORS.creamHex, 1).fillRoundedRect(-8, -12, 16, 12, 2);
+      g.lineStyle(2, COLORS.darkHex, 1).strokeCircle(11, -6, 4);
+      break;
+  }
+  return scene.add.container(x, y, [g]);
+}
+
+/** A plate icon for the strike counter; `cracked` greys + splits it. */
+export function makePlateIcon(scene: Phaser.Scene, x: number, y: number, cracked: boolean): Phaser.GameObjects.Container {
+  const g = scene.add.graphics();
+  g.fillStyle(cracked ? COLORS.disabledHex : COLORS.creamHex, 1).fillCircle(0, 0, 9);
+  g.lineStyle(2, COLORS.darkHex, 1).strokeCircle(0, 0, 9);
+  if (cracked) g.lineStyle(2, COLORS.redHex, 1).lineBetween(-6, -4, 5, 6);
+  return scene.add.container(x, y, [g]);
 }
