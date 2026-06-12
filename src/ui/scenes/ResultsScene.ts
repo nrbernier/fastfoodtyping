@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { OVERTIME, SHIFTS } from '../../core/shifts';
 import type { ShiftConfig, ShiftResult } from '../../core/types';
 import { SaveStore, safeLocalStorage } from '../../persistence/storage';
+import { formatMoney } from '../../core/money';
 import { COLORS, FONTS, makeButton } from '../theme';
 import { applyPaperGrain } from '../texture';
 
@@ -35,7 +36,7 @@ export class ResultsScene extends Phaser.Scene {
       this.config.name,
       '------------------------',
       `customers served ... ${r.served}`,
-      `tips earned ........ $${r.score}`,
+      `tips earned ........ ${formatMoney(r.score)}`,
       `accuracy ........... ${Math.round(r.accuracy * 100)}%`,
       `speed .............. ${Math.round(r.wpm)} wpm`,
       `best combo ......... x${r.bestCombo}`,

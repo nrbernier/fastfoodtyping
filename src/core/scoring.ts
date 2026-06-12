@@ -1,8 +1,8 @@
 import type { Order } from './types';
 
-/** 5 tip dollars per letter (spaces excluded). */
+/** Base tip in cents: 3¢ per letter (spaces excluded) — 1950s diner money. */
 export function baseTip(order: Order): number {
-  return 5 * order.normalized.replace(/ /g, '').length;
+  return 3 * order.normalized.replace(/ /g, '').length;
 }
 
 /** Serve in the green (>=50% patience left) for 1.5x, yellow (>=20%) for 1.2x. */
