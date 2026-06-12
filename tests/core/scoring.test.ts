@@ -7,9 +7,9 @@ function order(text: string): Order {
 }
 
 describe('scoring', () => {
-  it('baseTip is 5 per letter, spaces excluded', () => {
-    expect(baseTip(order('malt'))).toBe(20);
-    expect(baseTip(order('zebra souffle'))).toBe(60); // 12 letters
+  it('baseTip is 3 cents per letter, spaces excluded', () => {
+    expect(baseTip(order('malt'))).toBe(12);
+    expect(baseTip(order('zebra souffle'))).toBe(36); // 12 letters
   });
 
   it('patienceMultiplier rewards fast service', () => {
@@ -26,7 +26,7 @@ describe('scoring', () => {
   });
 
   it('orderTip combines all three, rounded', () => {
-    // 60 * 1.5 * 1.5 = 135
-    expect(orderTip(order('zebra souffle'), 0.6, 2)).toBe(135);
+    // 36 * 1.5 * 1.5 = 81
+    expect(orderTip(order('zebra souffle'), 0.6, 2)).toBe(81);
   });
 });

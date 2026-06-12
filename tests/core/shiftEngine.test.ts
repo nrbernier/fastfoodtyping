@@ -87,6 +87,17 @@ describe('ShiftEngine', () => {
     expect(result!.wpm).toBeGreaterThan(0);
   });
 
+  it('ends immediately at 0:00 even with customers still standing', () => {
+    const engine = makeEngine({ durationMs: 1500, patienceMs: { start: 10_000, end: 10_000 } });
+    let result: ShiftResult | null = null;
+    engine.events.on('shiftEnded', (e) => (result = e.result));
+    step(engine, 1500); // first customer is in, nowhere near timing out
+    expect(engine.isOver).toBe(true);
+    expect(result).not.toBeNull();
+    expect(result!.won).toBe(true);
+    expect(engine.activeCustomers.length).toBe(0); // the bell sent them home
+  });
+
   it('stops spawning after durationMs and wins when the room clears', () => {
     const engine = makeEngine({ durationMs: 1500, patienceMs: { start: 10_000, end: 10_000 } });
     let result: ShiftResult | null = null;

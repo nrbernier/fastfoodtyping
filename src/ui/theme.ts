@@ -100,6 +100,8 @@ export interface LiveTicket {
   container: Phaser.GameObjects.Container;
   /** Re-render with the first `typedCount` chars green and a caret after them. */
   update(typedCount: number): void;
+  /** Snap the whole order green (caret gone) and pop — the "order's up!" beat. */
+  complete(): void;
 }
 
 /** Order ticket whose text shows typed (green) vs remaining (ink) with a caret. */
@@ -128,17 +130,28 @@ export function makeLiveTicket(
     const remaining = text.slice(typedCount);
     typed.setText(done);
     rest.setText(remaining);
-    const total = typed.width + caret.width + rest.width;
+    caret.setVisible(typedCount < text.length); // no trailing caret once finished
+    const caretW = caret.visible ? caret.width : 0;
+    const total = typed.width + caretW + rest.width;
     const startX = -total / 2;
     typed.setX(startX);
     caret.setX(startX + typed.width);
-    rest.setX(startX + typed.width + caret.width);
+    rest.setX(startX + typed.width + caretW);
     if (typedCount > 0) {
       scene.tweens.add({
         targets: textGroup, scaleX: 1.06, scaleY: 1.06, duration: 60, yoyo: true,
       });
     }
   }
+
+  function complete() {
+    update(text.length); // whole order green, caret hidden
+    paper.setStrokeStyle(3, 0x27ae60); // green confirm border
+    scene.tweens.add({
+      targets: container, scaleX: 1.18, scaleY: 1.18, duration: 130, yoyo: true, ease: 'Quad.Out',
+    });
+  }
+
   update(0);
-  return { container, update };
+  return { container, update, complete };
 }

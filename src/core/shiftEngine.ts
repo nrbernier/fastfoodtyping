@@ -26,6 +26,7 @@ export class ShiftEngine {
 
   private readonly config: ShiftConfig;
   private readonly cap: number;
+  private readonly rng: Rng;
   private readonly typing = new TypingEngine();
   private readonly generator: OrderGenerator;
   private customers: CustomerState[] = [];
@@ -40,7 +41,8 @@ export class ShiftEngine {
   constructor(opts: ShiftEngineOptions) {
     this.config = opts.config;
     this.cap = opts.maxCustomersCap ?? 4;
-    this.generator = new OrderGenerator(opts.rng ?? mulberry32(Date.now() >>> 0));
+    this.rng = opts.rng ?? mulberry32(Date.now() >>> 0);
+    this.generator = new OrderGenerator(this.rng);
   }
 
   get isOver(): boolean {
@@ -63,10 +65,12 @@ export class ShiftEngine {
     if (this.over) return;
     this.elapsed += dtMs;
     const params = paramsAt(this.config, this.elapsed);
-    const stillServing = this.elapsed < this.config.durationMs;
+    // The shift bell rings the instant the (finite) timer expires; Overtime
+    // (durationMs = Infinity) never reaches time-up and ends only on strikes.
+    const timeUp = Number.isFinite(this.config.durationMs) && this.elapsed >= this.config.durationMs;
 
     if (
-      stillServing &&
+      !timeUp &&
       this.elapsed >= this.spawnAt &&
       this.activeCustomers.length < Math.min(params.maxCustomers, this.cap)
     ) {
@@ -87,7 +91,15 @@ export class ShiftEngine {
       }
     }
 
-    if (!stillServing && this.activeCustomers.length === 0) this.end(true);
+    // Bell at 0:00: any customers still standing are released (no penalty) and
+    // the shift ends directly, rather than lingering until they clear.
+    if (timeUp) {
+      for (const c of this.activeCustomers) {
+        c.resolved = true;
+        this.typing.release(c.id);
+      }
+      this.end(true);
+    }
   }
 
   handleKey(char: string): void {
@@ -124,9 +136,14 @@ export class ShiftEngine {
   private spawn(params: LiveParams): void {
     const usedLetters = new Set(this.activeCustomers.map((c) => c.order.normalized[0]));
     const order = this.generator.next(params.order, usedLetters);
+    // Pick a random free slot (not always the leftmost) so a lone customer
+    // isn't always parked at the same seat.
     const usedSlots = new Set(this.activeCustomers.map((c) => c.slot));
-    let slot = 0;
-    while (usedSlots.has(slot)) slot += 1;
+    const freeSlots = [];
+    for (let s = 0; s < this.cap; s++) if (!usedSlots.has(s)) freeSlots.push(s);
+    const slot = freeSlots.length > 0
+      ? freeSlots[Math.floor(this.rng() * freeSlots.length)]
+      : this.customers.length; // fallback: never reached while active < cap
     const customer: CustomerState = {
       id: this.nextId++,
       slot,

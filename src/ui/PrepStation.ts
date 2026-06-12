@@ -1,35 +1,34 @@
 import Phaser from 'phaser';
-import { COLORS, FONTS, makeTicket } from './theme';
+import { COLORS, FONTS } from './theme';
 import { makeDish } from './scenery';
 
 /**
  * The bowl on the prep counter. Completed words drop in as labeled ingredient
  * boxes that pour "powder"; a completed order pops out as a dish that slides
- * to the customer.
+ * to the customer. Everything it spawns renders at `depth` so the grill action
+ * floats above the counter rather than hiding behind it.
  */
 export class PrepStation {
   private root: Phaser.GameObjects.Container;
   private bowl: Phaser.GameObjects.Graphics;
 
-  constructor(private scene: Phaser.Scene, private x: number, private y: number) {
-    const backdrop = makeTicket(scene, 0, 0, '', 220, { width: 188, height: 96 });
-    const label = scene.add
-      .text(0, -34, '★ NOW PREPARING ★', {
-        fontFamily: FONTS.sans,
-        fontSize: '11px',
-        fontStyle: 'bold',
-        color: COLORS.red,
-      })
-      .setOrigin(0.5);
+  constructor(
+    private scene: Phaser.Scene,
+    private x: number,
+    private y: number,
+    private depth = 0,
+  ) {
     this.bowl = scene.add.graphics();
     this.bowl.fillStyle(COLORS.counter, 1).fillEllipse(0, 0, 150, 44);
     this.bowl.fillStyle(COLORS.counterEdge, 1).fillEllipse(0, -6, 130, 30);
-    this.root = scene.add.container(x, y, [backdrop, label, this.bowl]);
+    this.root = scene.add.container(x, y, [this.bowl]).setDepth(depth);
     scene.time.addEvent({ delay: 900, loop: true, callback: () => this.steam() });
   }
 
   private steam() {
-    const wisp = this.scene.add.circle(this.x + Phaser.Math.Between(-16, 16), this.y - 30, 4, COLORS.creamHex, 0.5);
+    const wisp = this.scene.add
+      .circle(this.x + Phaser.Math.Between(-16, 16), this.y - 30, 4, COLORS.creamHex, 0.5)
+      .setDepth(this.depth);
     this.scene.tweens.add({
       targets: wisp, y: this.y - 90, alpha: 0, scale: 1.8, duration: 1400, ease: 'Sine.Out',
       onComplete: () => wisp.destroy(),
@@ -48,7 +47,9 @@ export class PrepStation {
         padding: { x: 8, y: 5 },
       })
       .setOrigin(0.5);
-    const box = this.scene.add.container(this.x + Phaser.Math.Between(-30, 30), this.y - 130, [label]);
+    const box = this.scene.add
+      .container(this.x + Phaser.Math.Between(-30, 30), this.y - 130, [label])
+      .setDepth(this.depth);
 
     this.scene.tweens.add({
       targets: box,
@@ -72,7 +73,7 @@ export class PrepStation {
 
   /** The dish pops out of the bowl and slides to the customer. */
   serveDish(targetX: number, targetY: number, onDone?: () => void) {
-    const dish = makeDish(this.scene, this.x, this.y - 20);
+    const dish = makeDish(this.scene, this.x, this.y - 20).setDepth(this.depth);
     this.scene.tweens.add({ targets: dish, scaleX: 1.15, scaleY: 0.85, duration: 120, yoyo: true });
     this.scene.tweens.chain({
       targets: dish,
@@ -108,7 +109,7 @@ export class PrepStation {
         this.y - 60,
         Phaser.Math.Between(2, 4),
         COLORS.creamHex,
-      );
+      ).setDepth(this.depth);
       this.scene.tweens.add({
         targets: grain,
         y: this.y - 10,

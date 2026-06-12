@@ -51,6 +51,11 @@ export class CustomerView extends Phaser.GameObjects.Container {
     this.ticket.update(typedCount);
   }
 
+  /** Order's up: flash the whole ticket green so the finish is unmistakable. */
+  flashComplete() {
+    this.ticket.complete();
+  }
+
   updatePatience(fraction: number) {
     const f = Math.max(0, fraction);
     const color = f > 0.5 ? 0x27ae60 : f > 0.2 ? COLORS.mustardHex : COLORS.redHex;
