@@ -102,6 +102,8 @@ export interface LiveTicket {
   update(typedCount: number): void;
   /** Snap the whole order green (caret gone) and pop — the "order's up!" beat. */
   complete(): void;
+  /** Resting scale the pop animations spring back to (responsive shrink). */
+  setBaseScale(s: number): void;
 }
 
 /** Order ticket whose text shows typed (green) vs remaining (ink) with a caret. */
@@ -124,6 +126,7 @@ export function makeLiveTicket(
   const paper = scene.add.rectangle(0, 0, w, h, COLORS.creamHex).setStrokeStyle(2, COLORS.darkHex).setOrigin(0.5);
   const textGroup = scene.add.container(0, 0, [typed, caret, rest]);
   const container = scene.add.container(x, y, [shadow, tail, paper, textGroup]);
+  let baseScale = 1;
 
   function update(typedCount: number) {
     const done = text.slice(0, typedCount);
@@ -148,10 +151,15 @@ export function makeLiveTicket(
     update(text.length); // whole order green, caret hidden
     paper.setStrokeStyle(3, 0x27ae60); // green confirm border
     scene.tweens.add({
-      targets: container, scaleX: 1.18, scaleY: 1.18, duration: 130, yoyo: true, ease: 'Quad.Out',
+      targets: container, scaleX: baseScale * 1.18, scaleY: baseScale * 1.18,
+      duration: 130, yoyo: true, ease: 'Quad.Out',
     });
   }
 
+  function setBaseScale(s: number) {
+    baseScale = s;
+  }
+
   update(0);
-  return { container, update, complete };
+  return { container, update, complete, setBaseScale };
 }

@@ -15,7 +15,9 @@ import { SHIFTS } from '../../core/shifts';
 
 const HUD_TOP_FRACTION = 0.86;
 const COUNTER_Y_FRACTION = 0.58;
-const DEPTH = { backdrop: 0, customer: 5, counter: 10, prep: 12, hud: 20, overlay: 100 } as const;
+// Tickets float above scenery (50). The order being typed jumps above the strike
+// plates (1000) too, but stays below the pause overlay (1100).
+const DEPTH = { backdrop: 0, customer: 5, counter: 10, prep: 12, hud: 20, overlay: 100, ticket: 50, ticketActive: 1001 } as const;
 const CUSTOMER_SINK = 36; // px the customer's feet drop behind the counter, so it occludes their legs
 
 export class GameScene extends Phaser.Scene {
@@ -37,7 +39,11 @@ export class GameScene extends Phaser.Scene {
   private backdrop!: DinerBackdrop;
   private spikeX = 0;
   private spikeY = 0;
-  private spikeCount = 0;
+  private receipts: Array<{ view: Phaser.GameObjects.Container; index: number; jx: number }> = [];
+  private staticScenery: Phaser.GameObjects.GameObject[] = [];
+  private lastW = 0;
+  private lastH = 0;
+  private uiScale = 1;
 
   constructor() {
     super('game');
@@ -56,9 +62,11 @@ export class GameScene extends Phaser.Scene {
     this.maxSlots = width < 700 ? 3 : 4;
     this.engine = new ShiftEngine({ config: this.config, maxCustomersCap: this.maxSlots });
     this.shiftElapsedMs = 0;
-    this.spikeCount = 0;
+    this.receipts = [];
 
-    this.drawDiner(width, height);
+    this.layoutDiner(width, height);
+    this.lastW = width;
+    this.lastH = height;
     this.time.addEvent({
       delay: 2600, loop: true, callback: () => {
         this.tweens.add({ targets: this.backdrop.neon, alpha: 0.35, duration: 60, yoyo: true, repeat: 1 });
@@ -101,6 +109,20 @@ export class GameScene extends Phaser.Scene {
     const onResize = () => {
       const w = this.scale.width;
       const h = this.scale.height;
+      // The mobile soft keyboard / dynamic browser toolbar resizes the viewport
+      // mid-shift. Re-flow the WHOLE diner against the new height so the counter,
+      // floor, prep bowl, spike, and every standing customer stay in register
+      // (otherwise scenery sticks at its old height while customers float).
+      if (Math.abs(w - this.lastW) < 2 && Math.abs(h - this.lastH) < 2) return;
+      this.lastW = w;
+      this.lastH = h;
+      this.layoutDiner(w, h); // recomputes this.uiScale
+      this.prep.reposition(w / 2, h * 0.78);
+      for (const c of this.engine.activeCustomers) {
+        const view = this.views.get(c.id);
+        view?.setUiScale(this.uiScale);
+        view?.reposition(this.slotX(c.slot) + this.jitterFor(c.id), this.customerY());
+      }
       this.hud.layout(w, h, h * HUD_TOP_FRACTION);
       this.pauseRect.setSize(w, h);
       this.pauseText.setPosition(w / 2, h / 2);
@@ -136,9 +158,16 @@ export class GameScene extends Phaser.Scene {
 
     e.on('customerArrived', ({ customer }) => {
       this.orderWords.set(customer.id, customer.order.words);
-      // small deterministic per-customer nudge so seats aren't a perfect grid
-      const jitter = ((customer.id * 53) % 39) - 19;
-      const view = new CustomerView(this, customer, this.slotX(customer.slot) + jitter, this.counterY() + CUSTOMER_SINK);
+      const view = new CustomerView(
+        this,
+        customer,
+        this.slotX(customer.slot) + this.jitterFor(customer.id),
+        this.customerY(),
+        DEPTH.ticket,
+        DEPTH.ticketActive,
+        this.uiScale,
+        this.staggerFor(customer.slot),
+      );
       view.setDepth(DEPTH.customer);
       this.views.set(customer.id, view);
     });
@@ -203,50 +232,105 @@ export class GameScene extends Phaser.Scene {
     return this.scale.height * COUNTER_Y_FRACTION;
   }
 
-  private drawDiner(width: number, height: number) {
+  /** Y where a customer's feet rest (sink scaled so small customers tuck in). */
+  private customerY(): number {
+    return this.counterY() + CUSTOMER_SINK * this.uiScale;
+  }
+
+  /**
+   * One responsive scale for customers, tickets, and wall furniture. Driven by
+   * the smaller of width/height vs a reference so a short (keyboard-up) or narrow
+   * (phone) viewport shrinks everything enough to stop it overlapping.
+   */
+  private uiScaleFor(width: number, height: number): number {
+    return Phaser.Math.Clamp(Math.min(width / 440, height / 760), 0.5, 1);
+  }
+
+  /** Deterministic per-customer seat nudge so seats aren't a perfect grid. */
+  private jitterFor(id: number): number {
+    return (((id * 53) % 39) - 19) * this.uiScale;
+  }
+
+  /** Lift odd seats' tickets so neighbouring (long) tickets don't overlap. */
+  private staggerFor(slot: number): number {
+    return (slot % 2) * -52;
+  }
+
+  /** Stacked resting place for the Nth impaled receipt, piling up from the base. */
+  private receiptRestY(index: number): number {
+    const capped = Math.min(index, 6); // beyond this they bunch near the tip
+    return this.spikeY - 12 - capped * 13;
+  }
+
+  private receiptRestX(jx: number): number {
+    return this.spikeX + jx;
+  }
+
+  /**
+   * (Re)build all static diner scenery at the given size. Safe to call again on
+   * resize: the previous backdrop and tracked scenery are torn down first, and
+   * any receipts already on the spike are re-seated at the new geometry.
+   */
+  private layoutDiner(width: number, height: number) {
     const counterY = height * COUNTER_Y_FRACTION;
+    const ui = this.uiScaleFor(width, height);
+    this.uiScale = ui;
     const shiftIndex = SHIFTS.findIndex((s) => s.id === this.config.id);
     const menuIndex = shiftIndex >= 0 ? shiftIndex : SHIFTS.length; // overtime -> weirdest menu
 
+    this.backdrop?.destroy();
+    for (const o of this.staticScenery) o.destroy();
+    this.staticScenery = [];
+    const keep = <T extends Phaser.GameObjects.GameObject>(o: T): T => {
+      this.staticScenery.push(o);
+      return o;
+    };
+
     // wall scene (window, menu board, big neon marquee) behind everything
-    this.backdrop = new DinerBackdrop(this, width, counterY, menuIndex);
+    this.backdrop = new DinerBackdrop(this, width, counterY, menuIndex, ui);
 
     // shift-name subtitle, tucked just under the neon marquee
-    this.add.text(width / 2, counterY * 0.22 + 36, this.config.name.toUpperCase(), {
+    keep(this.add.text(width / 2, counterY * 0.16 + 30 * ui, this.config.name.toUpperCase(), {
       fontFamily: FONTS.sans, fontSize: '15px', fontStyle: 'bold', color: COLORS.cream,
-    }).setOrigin(0.5, 0);
+    }).setOrigin(0.5, 0).setScale(ui));
 
     // starburst wall clock
-    const clock = makeStarburst(this, width - 64, 64, 44, '');
+    const clock = makeStarburst(this, width - 52 * ui, 52 * ui, 44, '').setScale(ui);
     this.clockText = this.add.text(0, 0, clockLabel(this.config.durationMs, this.shiftElapsedMs), {
       fontFamily: FONTS.sans, fontSize: '17px', fontStyle: 'bold', color: COLORS.dark,
     }).setOrigin(0.5);
     clock.add(this.clockText);
+    keep(clock);
 
-    // counter with red trim — explicit depth so it occludes customer legs (set later)
-    this.add.container(0, 0, [
+    // counter with red trim — explicit depth so it occludes customer legs
+    keep(this.add.container(0, 0, [
       this.add.rectangle(0, counterY, width, 6, COLORS.redHex).setOrigin(0),
       this.add.rectangle(0, counterY + 6, width, 12, COLORS.counterEdge).setOrigin(0),
       this.add.rectangle(0, counterY + 18, width, height * 0.1, COLORS.counter).setOrigin(0),
-    ]).setDepth(DEPTH.counter);
+    ]).setDepth(DEPTH.counter));
 
     // counter clutter: repeated condiment trios (reordered) plus a few props
     const propY = counterY + 14;
     [0.18, 0.46, 0.74].forEach((fx, i) =>
-      makeCondimentGroup(this, width * fx, propY, i).setDepth(DEPTH.counter + 1),
+      keep(makeCondimentGroup(this, width * fx, propY, i).setDepth(DEPTH.counter + 1)),
     );
     [[0.34, 2], [0.6, 0], [0.92, 3]].forEach(([fx, kind]) =>
-      makeCounterProp(this, width * fx, propY, kind).setDepth(DEPTH.counter + 1),
+      keep(makeCounterProp(this, width * fx, propY, kind).setDepth(DEPTH.counter + 1)),
     );
 
     // receipt spindle near the left end of the counter; served orders pile here
     this.spikeX = width * 0.06;
     this.spikeY = counterY + 12;
-    makeReceiptSpike(this, this.spikeX, this.spikeY).setDepth(DEPTH.counter + 2);
+    keep(makeReceiptSpike(this, this.spikeX, this.spikeY).setDepth(DEPTH.counter + 2));
 
     // receding checker floor between counter and HUD
     const floorY = counterY + 18 + height * 0.1;
-    drawPerspectiveFloor(this, floorY, height * HUD_TOP_FRACTION, width);
+    keep(drawPerspectiveFloor(this, floorY, height * HUD_TOP_FRACTION, width));
+
+    // re-seat receipts already on the spike against the rebuilt geometry
+    for (const r of this.receipts) {
+      r.view.setPosition(this.receiptRestX(r.jx), this.receiptRestY(r.index)).setDepth(DEPTH.counter + 3);
+    }
   }
 
   /** Big, lingering tip pop above the served customer. */
@@ -267,14 +351,14 @@ export class GameScene extends Phaser.Scene {
 
   /** Fly a tiny receipt from the served customer onto the spindle, where it piles up. */
   private impaleReceipt(fromX: number, fromY: number) {
+    const index = this.receipts.length;
+    const jx = Phaser.Math.Between(-3, 3);
     const receipt = makeSmallReceipt(this, fromX, fromY).setDepth(DEPTH.counter + 3);
-    const restY = this.spikeY - 40 - Math.min(this.spikeCount, 12) * 2.2;
-    const restX = this.spikeX + Phaser.Math.Between(-3, 3);
-    this.spikeCount += 1;
+    this.receipts.push({ view: receipt, index, jx });
     this.tweens.add({
       targets: receipt,
-      x: restX,
-      y: restY,
+      x: this.receiptRestX(jx),
+      y: this.receiptRestY(index),
       angle: Phaser.Math.Between(-8, 8),
       duration: 380,
       ease: 'Quad.In',
