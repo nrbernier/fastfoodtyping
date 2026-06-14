@@ -106,13 +106,18 @@ export function makeDish(scene: Phaser.Scene, x: number, y: number): Phaser.Game
   return scene.add.container(x, y, [plate, food]);
 }
 
+/** Height of the steel spindle, exported so receipt stacking can reach the tip. */
+export const RECEIPT_SPIKE_HEIGHT = 100;
+
 /** Metal receipt spindle: a weighted base and a vertical spike served orders pile onto. */
 export function makeReceiptSpike(scene: Phaser.Scene, x: number, y: number): Phaser.GameObjects.Container {
+  const H = RECEIPT_SPIKE_HEIGHT;
   const g = scene.add.graphics();
-  g.fillStyle(COLORS.counterEdge, 1).fillEllipse(0, 0, 28, 10); // weighted base
-  g.fillStyle(COLORS.darkHex, 1).fillEllipse(0, -1, 18, 5);
-  g.fillStyle(0x9a9488, 1).fillRect(-1.5, -48, 3, 48);          // steel spindle
-  g.fillStyle(COLORS.creamHex, 1).fillCircle(0, -48, 2.5);      // tip glint
+  g.fillStyle(COLORS.counterEdge, 1).fillEllipse(0, 0, 46, 16); // weighted base
+  g.fillStyle(COLORS.darkHex, 1).fillEllipse(0, -2, 30, 9);
+  g.fillStyle(0x9a9488, 1).fillRect(-2.5, -H, 5, H);            // steel spindle
+  g.fillStyle(0xc7c2b6, 1).fillRect(-2.5, -H, 2, H);            // highlight edge
+  g.fillStyle(COLORS.creamHex, 1).fillCircle(0, -H, 4);         // tip glint
   return scene.add.container(x, y, [g]);
 }
 

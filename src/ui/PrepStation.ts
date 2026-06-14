@@ -25,6 +25,13 @@ export class PrepStation {
     scene.time.addEvent({ delay: 900, loop: true, callback: () => this.steam() });
   }
 
+  /** Move the bowl (and the origin of everything it spawns) after a resize. */
+  reposition(x: number, y: number) {
+    this.x = x;
+    this.y = y;
+    this.root.setPosition(x, y);
+  }
+
   private steam() {
     const wisp = this.scene.add
       .circle(this.x + Phaser.Math.Between(-16, 16), this.y - 30, 4, COLORS.creamHex, 0.5)
