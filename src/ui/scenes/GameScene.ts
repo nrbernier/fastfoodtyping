@@ -316,6 +316,10 @@ export class GameScene extends Phaser.Scene {
     const shiftIndex = SHIFTS.findIndex((s) => s.id === this.config.id);
     const menuIndex = shiftIndex >= 0 ? shiftIndex : SHIFTS.length; // overtime -> weirdest menu
 
+    // The register (and its score text) is part of staticScenery and gets
+    // destroyed/rebuilt here; kill any in-flight score pop/flash tween first so
+    // it never targets the about-to-be-destroyed text after a resize.
+    if (this.registerScore) this.tweens.killTweensOf(this.registerScore);
     this.backdrop?.destroy();
     for (const o of this.staticScenery) o.destroy();
     this.staticScenery = [];

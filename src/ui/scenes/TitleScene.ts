@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { OVERTIME, SHIFTS } from '../../core/shifts';
+import { formatMoney } from '../../core/money';
 import { SaveStore, safeLocalStorage } from '../../persistence/storage';
 import { COLORS, FONTS, makeButton, makeStarburst } from '../theme';
 import { applyPaperGrain } from '../texture';
@@ -88,7 +89,7 @@ export class TitleScene extends Phaser.Scene {
     const best = save.highScores[OVERTIME.id];
     if (best) {
       this.add
-        .text(width / 2, height * 0.76, `Overtime best: $${best}`, {
+        .text(width / 2, height * 0.76, `Overtime best: ${formatMoney(best)}`, {
           fontFamily: FONTS.mono,
           fontSize: '17px',
           color: COLORS.dark,
