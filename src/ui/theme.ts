@@ -112,9 +112,9 @@ export function makeLiveTicket(
   x: number,
   y: number,
   text: string,
-  maxWidth = 220,
+  maxWidth = 280,
 ): LiveTicket {
-  const style = { fontFamily: FONTS.mono, fontSize: '17px', align: 'center' as const };
+  const style = { fontFamily: FONTS.mono, fontSize: '22px', align: 'center' as const };
   const typed = scene.add.text(0, 0, '', { ...style, color: COLORS.green }).setOrigin(0, 0.5);
   const caret = scene.add.text(0, 0, '_', { ...style, color: COLORS.red }).setOrigin(0, 0.5);
   const rest = scene.add.text(0, 0, text, { ...style, color: COLORS.dark }).setOrigin(0, 0.5);
