@@ -47,10 +47,11 @@ export class CustomerView extends Phaser.GameObjects.Container {
     // on a high depth so the order you're typing is never hidden behind the
     // counter, props, or HUD. It trails the customer via positionTicket().
     this.ticket = makeLiveTicket(scene, x, y, customer.order.text);
-    // offset measured at scale 1; positionTicket multiplies by uiScale so the
-    // ticket stays just above the (possibly shrunk) head on small viewports.
-    // The per-seat stagger lifts alternating seats so neighbouring tickets never
-    // collide horizontally even when an order's text is long.
+    // ticketHalf1 is the ticket's half-height at scale 1. positionTicket scales
+    // it by ticketScale() (which floors at MIN_TICKET_SCALE) so the bubble stays
+    // legible even when the customer sprite shrinks; the per-seat stagger still
+    // scales with uiScale (it's a layout offset, not a bubble dimension) and lifts
+    // alternating seats so long neighbouring tickets never collide horizontally.
     this.ticketHalf1 = this.ticket.container.getBounds().height / 2;
     this.ticketStaggerPx = ticketStaggerPx;
     this.ticket.setBaseScale(this.ticketScale());
@@ -78,6 +79,8 @@ export class CustomerView extends Phaser.GameObjects.Container {
    *  scale is left to the intro/lock/complete tweens). */
   private positionTicket = () => {
     const barTopWorld = this.y + BAR_Y * this.uiScale;
+    // The bubble's own height clears by ticketScale() (its floored scale); the
+    // bar anchor and stagger clear by uiScale (they track the shrinking sprite).
     const y =
       barTopWorld -
       TICKET_GAP * this.uiScale -
