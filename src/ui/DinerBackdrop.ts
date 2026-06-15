@@ -24,10 +24,11 @@ export class DinerBackdrop {
 
     // Wall furniture shrinks on small/narrow viewports so it doesn't crowd the
     // marquee or collide with the customers' order tickets.
-    keep(makeWindowBlinds(scene, width * 0.2, wallBottom * 0.42, 150, 110)).setScale(uiScale);
-    keep(makeMenuBoard(scene, width * 0.82, wallBottom * 0.44, shiftIndex)).setScale(uiScale);
+    keep(makeWindowBlinds(scene, width * 0.2, wallBottom * 0.48, 150, 110)).setScale(uiScale);
+    keep(makeMenuBoard(scene, width * 0.82, wallBottom * 0.5, shiftIndex)).setScale(uiScale);
     // The big house sign: large neon script, the marquee for the whole diner.
-    this.neon = keep(makeNeonSign(scene, width * 0.5, wallBottom * 0.2, "Mel's Diner", 60)).setScale(uiScale);
+    // Anchored lower so it sits clear below the top-left strike plates.
+    this.neon = keep(makeNeonSign(scene, width * 0.5, wallBottom * 0.3, "Mel's Diner", 60)).setScale(uiScale);
   }
 
   /** Tear down every wall object so the scene can rebuild it at a new size. */
