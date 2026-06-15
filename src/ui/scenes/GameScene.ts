@@ -356,14 +356,17 @@ export class GameScene extends Phaser.Scene {
       keep(makeCounterProp(this, width * fx, propY, kind).setDepth(DEPTH.counter + 1)),
     );
 
+    // Spike + register flank the stove at stove level. Depth prep+1 keeps them
+    // explicitly above the stove (DEPTH.prep) regardless of render-list order,
+    // so they're never swallowed by it on a narrow viewport.
     // receipt spindle dropped to stove level, just left of the stove
     this.spikeX = width * 0.2;
     this.spikeY = this.stoveY();
-    keep(makeReceiptSpike(this, this.spikeX, this.spikeY).setDepth(DEPTH.prep).setScale(ui));
+    keep(makeReceiptSpike(this, this.spikeX, this.spikeY).setDepth(DEPTH.prep + 1).setScale(ui));
 
     // vintage cash register right of the stove; the running score lives in its window
     const register = makeCashRegister(this, width * 0.8, this.stoveY(), formatMoney(this.score));
-    register.container.setDepth(DEPTH.prep).setScale(ui);
+    register.container.setDepth(DEPTH.prep + 1).setScale(ui);
     this.registerScore = register.scoreText;
     keep(register.container);
 

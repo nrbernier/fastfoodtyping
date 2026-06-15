@@ -15,7 +15,7 @@ export class Hud {
     this.renderStrikes();
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  /** Re-assert the strike row's fixed top-left position after a viewport resize. */
   layout(_width: number, _height: number) {
     this.strikeRow.setPosition(28, 34);
   }
