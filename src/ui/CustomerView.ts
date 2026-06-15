@@ -6,13 +6,17 @@ import { COLORS, makeLiveTicket, makeStarburst, type LiveTicket } from './theme'
 const SPRITE_HEIGHT = 175;
 const BAR_Y = -(SPRITE_HEIGHT + 12);
 const TICKET_GAP = 30;
+// The customer sprite may shrink to uiScale 0.5 on a phone, but the order
+// bubble must stay readable, so the ticket scales on its own higher floor.
+const MIN_TICKET_SCALE = 0.78;
 
 export class CustomerView extends Phaser.GameObjects.Container {
   readonly customerId: number;
   private ticket: LiveTicket;
   private bar: Phaser.GameObjects.Graphics;
   private sprite: Phaser.GameObjects.Image;
-  private baseOffsetY: number;
+  private ticketHalf1: number; // ticket half-height measured at scale 1
+  private ticketStaggerPx: number;
   private ticketDepth: number;
   private activeTicketDepth: number;
   private uiScale: number;
@@ -47,8 +51,9 @@ export class CustomerView extends Phaser.GameObjects.Container {
     // ticket stays just above the (possibly shrunk) head on small viewports.
     // The per-seat stagger lifts alternating seats so neighbouring tickets never
     // collide horizontally even when an order's text is long.
-    this.baseOffsetY = BAR_Y - TICKET_GAP - this.ticket.container.getBounds().height / 2 + ticketStaggerPx;
-    this.ticket.setBaseScale(uiScale);
+    this.ticketHalf1 = this.ticket.container.getBounds().height / 2;
+    this.ticketStaggerPx = ticketStaggerPx;
+    this.ticket.setBaseScale(this.ticketScale());
     this.ticket.container.setDepth(ticketDepth).setScale(0);
 
     this.bar = scene.add.graphics();
@@ -60,7 +65,7 @@ export class CustomerView extends Phaser.GameObjects.Container {
     this.setScale(0);
     this.positionTicket();
     scene.tweens.add({ targets: this, scale: uiScale, duration: 250, ease: 'Back.Out' });
-    scene.tweens.add({ targets: this.ticket.container, scale: uiScale, duration: 250, ease: 'Back.Out' });
+    scene.tweens.add({ targets: this.ticket.container, scale: this.ticketScale(), duration: 250, ease: 'Back.Out' });
     scene.tweens.add({
       targets: this.sprite, y: '-=4', duration: 1100 + (customer.id % 5) * 90,
       yoyo: true, repeat: -1, ease: 'Sine.InOut',
@@ -72,7 +77,13 @@ export class CustomerView extends Phaser.GameObjects.Container {
   /** Keep the floating ticket pinned above the customer (position + fade only;
    *  scale is left to the intro/lock/complete tweens). */
   private positionTicket = () => {
-    this.ticket.container.setPosition(this.x, this.y + this.baseOffsetY * this.uiScale);
+    const barTopWorld = this.y + BAR_Y * this.uiScale;
+    const y =
+      barTopWorld -
+      TICKET_GAP * this.uiScale -
+      this.ticketHalf1 * this.ticketScale() +
+      this.ticketStaggerPx * this.uiScale;
+    this.ticket.container.setPosition(this.x, y);
     this.ticket.container.setAlpha(this.alpha);
   };
 
@@ -86,19 +97,26 @@ export class CustomerView extends Phaser.GameObjects.Container {
   setUiScale(s: number) {
     this.uiScale = s;
     this.setScale(s);
-    this.ticket.setBaseScale(s);
-    this.ticket.container.setScale(this.locked ? s * 1.12 : s);
+    const ts = this.ticketScale();
+    this.ticket.setBaseScale(ts);
+    this.ticket.container.setScale(this.locked ? ts * 1.12 : ts);
     this.positionTicket();
+  }
+
+  /** Bubble scale: customer uiScale, but never below a legible floor. */
+  private ticketScale(): number {
+    return Math.max(this.uiScale, MIN_TICKET_SCALE);
   }
 
   setLocked(locked: boolean) {
     this.locked = locked;
     // The order being typed jumps above every other ticket (and the HUD).
     this.ticket.container.setDepth(locked ? this.activeTicketDepth : this.ticketDepth);
+    const ts = this.ticketScale();
     this.scene.tweens.add({
       targets: this.ticket.container,
-      scaleX: locked ? this.uiScale * 1.12 : this.uiScale,
-      scaleY: locked ? this.uiScale * 1.12 : this.uiScale,
+      scaleX: locked ? ts * 1.12 : ts,
+      scaleY: locked ? ts * 1.12 : ts,
       duration: 120,
     });
   }
