@@ -224,24 +224,24 @@ export function makeCashRegister(
 ): { container: Phaser.GameObjects.Container; scoreText: Phaser.GameObjects.Text } {
   const g = scene.add.graphics();
   // drawer base
-  g.fillStyle(COLORS.counter, 1).fillRect(-32, 0, 64, 16);
-  g.lineStyle(2, COLORS.darkHex, 1).strokeRect(-32, 0, 64, 16);
+  g.fillStyle(COLORS.counter, 1).fillRect(-38, 0, 76, 16);
+  g.lineStyle(2, COLORS.darkHex, 1).strokeRect(-38, 0, 76, 16);
   g.fillStyle(COLORS.darkHex, 1).fillCircle(0, 8, 2);
   // upper body
-  g.fillStyle(COLORS.counterEdge, 1).fillRoundedRect(-30, -44, 60, 44, 5);
-  g.lineStyle(2, COLORS.darkHex, 1).strokeRoundedRect(-30, -44, 60, 44, 5);
-  // display window (cream pane the score sits in)
-  g.fillStyle(COLORS.creamHex, 1).fillRoundedRect(-24, -40, 48, 20, 3);
-  g.lineStyle(2, COLORS.darkHex, 1).strokeRoundedRect(-24, -40, 48, 20, 3);
+  g.fillStyle(COLORS.counterEdge, 1).fillRoundedRect(-36, -44, 72, 44, 5);
+  g.lineStyle(2, COLORS.darkHex, 1).strokeRoundedRect(-36, -44, 72, 44, 5);
+  // display window (cream pane the score sits in — wide enough for "$24.50")
+  g.fillStyle(COLORS.creamHex, 1).fillRoundedRect(-32, -40, 64, 20, 3);
+  g.lineStyle(2, COLORS.darkHex, 1).strokeRoundedRect(-32, -40, 64, 20, 3);
   // key bank hint
   g.fillStyle(COLORS.darkHex, 0.5);
-  for (let kx = -20; kx <= 20; kx += 10) g.fillCircle(kx, -12, 2);
+  for (let kx = -24; kx <= 24; kx += 12) g.fillCircle(kx, -12, 2);
   // side crank
-  g.lineStyle(3, COLORS.darkHex, 1).lineBetween(30, -34, 42, -34);
-  g.fillStyle(COLORS.redHex, 1).fillCircle(42, -34, 3.5);
+  g.lineStyle(3, COLORS.darkHex, 1).lineBetween(36, -34, 48, -34);
+  g.fillStyle(COLORS.redHex, 1).fillCircle(48, -34, 3.5);
   const scoreText = scene.add
     .text(0, -30, scoreLabel, {
-      fontFamily: FONTS.sans, fontSize: '15px', fontStyle: 'bold', color: COLORS.dark,
+      fontFamily: FONTS.sans, fontSize: '17px', fontStyle: 'bold', color: COLORS.dark,
     })
     .setOrigin(0.5);
   const container = scene.add.container(x, y, [g, scoreText]);

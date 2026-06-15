@@ -327,8 +327,9 @@ export class GameScene extends Phaser.Scene {
     // wall scene (window, menu board, big neon marquee) behind everything
     this.backdrop = new DinerBackdrop(this, width, counterY, menuIndex, ui);
 
-    // shift-name subtitle, tucked just under the neon marquee
-    keep(this.add.text(width / 2, counterY * 0.16 + 30 * ui, this.config.name.toUpperCase(), {
+    // shift-name subtitle, between the strike plates and the neon marquee
+    // (kept above the neon so it never collides with the centered order bubbles)
+    keep(this.add.text(width / 2, counterY * 0.17 + 18 * ui, this.config.name.toUpperCase(), {
       fontFamily: FONTS.sans, fontSize: '15px', fontStyle: 'bold', color: COLORS.cream,
     }).setOrigin(0.5, 0).setScale(ui));
 
@@ -366,7 +367,7 @@ export class GameScene extends Phaser.Scene {
 
     // vintage cash register right of the stove; the running score lives in its window
     const register = makeCashRegister(this, width * 0.8, this.stoveY(), formatMoney(this.score));
-    register.container.setDepth(DEPTH.prep + 1).setScale(ui);
+    register.container.setDepth(DEPTH.prep + 1).setScale(ui * 1.2);
     this.registerScore = register.scoreText;
     keep(register.container);
 
