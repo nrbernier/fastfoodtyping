@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Short-Order Hero — frozen game state (phone, keyboard up)</title>
+    <meta name="robots" content="noindex, nofollow" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        min-height: 100%;
+        background: #2b2b30;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 14px;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+      }
+      /* Phone-format device frame. The soft keyboard eats the bottom of the
+         screen in practice, so the playfield (#app) is only the area above it —
+         exactly the short viewport the game sees when the keyboard opens. */
+      .phone {
+        width: 390px;
+        height: 820px;
+        border-radius: 36px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55), 0 0 0 10px #111319, 0 0 0 12px #34373f;
+        background: #f4e8cf;
+      }
+      #app {
+        width: 390px;
+        height: 520px;
+        flex: 0 0 520px;
+      }
+
+      /* ---- iOS portrait keyboard (light mode, no predictive bar) ---- */
+      .kbd {
+        flex: 1 1 auto;
+        background: #d1d4db;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        padding: 8px 3px 0;
+        box-sizing: border-box;
+        font-family: -apple-system, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+        user-select: none;
+      }
+      .kbd .row {
+        display: flex;
+        justify-content: center;
+        gap: 6px;
+        margin-bottom: 11px;
+      }
+      .kbd .key {
+        height: 42px;
+        min-width: 31px;
+        flex: 1 1 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #fdfdfd;
+        border-radius: 5px;
+        box-shadow: 0 1px 0 rgba(0, 0, 0, 0.32);
+        font-size: 22px;
+        color: #000;
+      }
+      /* Rows 2 & 3 are inset so the letters stay centred like real iOS. */
+      .kbd .row.r2 {
+        padding: 0 22px;
+      }
+      .kbd .key.fn {
+        background: #abafb9;
+        font-size: 17px;
+        flex: 1.4 1 0;
+      }
+      .kbd .key.wide {
+        flex: 5 1 0;
+        font-size: 16px;
+        color: #1a1a1a;
+      }
+      .kbd .row.r4 .key {
+        font-size: 16px;
+      }
+      .kbd .home {
+        margin-top: auto;
+        align-self: center;
+        width: 134px;
+        height: 5px;
+        border-radius: 3px;
+        background: #111;
+        margin-bottom: 8px;
+      }
+      .caption {
+        color: #b9b9c0;
+        font-size: 13px;
+        letter-spacing: 0.02em;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="phone">
+      <div id="app"></div>
+      <div class="kbd">
+        <div class="row">
+          <span class="key">q</span><span class="key">w</span><span class="key">e</span
+          ><span class="key">r</span><span class="key">t</span><span class="key">y</span
+          ><span class="key">u</span><span class="key">i</span><span class="key">o</span
+          ><span class="key">p</span>
+        </div>
+        <div class="row r2">
+          <span class="key">a</span><span class="key">s</span><span class="key">d</span
+          ><span class="key">f</span><span class="key">g</span><span class="key">h</span
+          ><span class="key">j</span><span class="key">k</span><span class="key">l</span>
+        </div>
+        <div class="row r3">
+          <span class="key fn">⇧</span><span class="key">z</span><span class="key">x</span
+          ><span class="key">c</span><span class="key">v</span><span class="key">b</span
+          ><span class="key">n</span><span class="key">m</span><span class="key fn">⌫</span>
+        </div>
+        <div class="row r4">
+          <span class="key fn">123</span><span class="key fn">🌐</span
+          ><span class="key wide">space</span><span class="key fn">return</span>
+        </div>
+        <div class="home"></div>
+      </div>
+    </div>
+    <div class="caption">Short-Order Hero · busy mid-shift, keyboard up · animations live, clock paused</div>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

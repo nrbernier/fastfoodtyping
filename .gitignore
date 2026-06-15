@@ -1,5 +1,7 @@
 .superpowers/
 node_modules/
 dist/
+dist-demo/
+demo/assets.generated.ts
 *.swp
 .env
