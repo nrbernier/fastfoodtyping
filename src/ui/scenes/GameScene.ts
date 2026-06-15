@@ -9,13 +9,14 @@ import { Hud } from '../Hud';
 import { PrepStation } from '../PrepStation';
 import { COLORS, FONTS, makeStarburst } from '../theme';
 import { DinerBackdrop } from '../DinerBackdrop';
-import { drawPerspectiveFloor, makeCondimentGroup, makeCounterProp, makeReceiptSpike, makeSmallReceipt } from '../scenery';
+import { drawPerspectiveFloor, makeCashRegister, makeCondimentGroup, makeCounterProp, makeReceiptSpike, makeSmallReceipt } from '../scenery';
 import { applyPaperGrain } from '../texture';
 import { SHIFTS } from '../../core/shifts';
 import { mulberry32 } from '../../core/rng';
 
-const HUD_TOP_FRACTION = 0.86;
-const COUNTER_Y_FRACTION = 0.58;
+const COUNTER_Y_FRACTION = 0.6;   // counter line a touch lower; wall has more room
+const STOVE_Y_FRACTION = 0.8;     // stove/prep level — spike + register flank it
+const COUNTER_BAND_FRACTION = 0.05; // shorter counter body (was 0.1) reclaims height
 // Tickets float above scenery (50). The order being typed jumps above the strike
 // plates (1000) too, but stays below the pause overlay (1100).
 const DEPTH = { backdrop: 0, customer: 5, counter: 10, prep: 12, hud: 20, overlay: 100, ticket: 50, ticketActive: 1001 } as const;
@@ -41,6 +42,8 @@ export class GameScene extends Phaser.Scene {
   private spikeX = 0;
   private spikeY = 0;
   private receipts: Array<{ view: Phaser.GameObjects.Container; index: number; jx: number }> = [];
+  private score = 0;
+  private registerScore?: Phaser.GameObjects.Text;
   private staticScenery: Phaser.GameObjects.GameObject[] = [];
   private lastW = 0;
   private lastH = 0;
@@ -85,9 +88,9 @@ export class GameScene extends Phaser.Scene {
         this.tweens.add({ targets: this.backdrop.neon, alpha: 0.35, duration: 60, yoyo: true, repeat: 1 });
       },
     });
-    this.prep = new PrepStation(this, width / 2, height * 0.78, DEPTH.prep);
+    this.prep = new PrepStation(this, this.stoveX(), this.stoveY(), DEPTH.prep);
     this.hud = new Hud(this);
-    this.hud.layout(width, height, height * HUD_TOP_FRACTION);
+    this.hud.layout(width, height);
     this.buildPauseOverlay(width, height);
     applyPaperGrain(this);
 
@@ -134,13 +137,13 @@ export class GameScene extends Phaser.Scene {
       this.lastW = w;
       this.lastH = h;
       this.layoutDiner(w, h); // recomputes this.uiScale
-      this.prep.reposition(w / 2, h * 0.78);
+      this.prep.reposition(this.stoveX(), this.stoveY());
       for (const c of this.engine.activeCustomers) {
         const view = this.views.get(c.id);
         view?.setUiScale(this.uiScale);
         view?.reposition(this.slotX(c.slot) + this.jitterFor(c.id), this.customerY());
       }
-      this.hud.layout(w, h, h * HUD_TOP_FRACTION);
+      this.hud.layout(w, h);
       this.pauseRect.setSize(w, h);
       this.pauseText.setPosition(w / 2, h / 2);
     };
@@ -224,7 +227,7 @@ export class GameScene extends Phaser.Scene {
       this.prep.serveDish(tx, ty, () => {
         view?.serve(() => this.views.delete(customerId));
       });
-      this.hud.setScore(this.engine.score);
+      this.setRegisterScore(this.engine.score);
       this.impaleReceipt(tx, this.counterY());
       this.popTip(tx, ty - 60, tip);
     });
@@ -237,7 +240,7 @@ export class GameScene extends Phaser.Scene {
     });
 
     e.on('mistake', () => {
-      this.hud.flashMistake();
+      this.flashRegister();
       this.prep.shake();
     });
 
@@ -257,6 +260,14 @@ export class GameScene extends Phaser.Scene {
 
   private counterY(): number {
     return this.scale.height * COUNTER_Y_FRACTION;
+  }
+
+  private stoveX(): number {
+    return this.scale.width / 2;
+  }
+
+  private stoveY(): number {
+    return this.scale.height * STOVE_Y_FRACTION;
   }
 
   /** Y where a customer's feet rest (sink scaled so small customers tuck in). */
@@ -333,7 +344,7 @@ export class GameScene extends Phaser.Scene {
     keep(this.add.container(0, 0, [
       this.add.rectangle(0, counterY, width, 6, COLORS.redHex).setOrigin(0),
       this.add.rectangle(0, counterY + 6, width, 12, COLORS.counterEdge).setOrigin(0),
-      this.add.rectangle(0, counterY + 18, width, height * 0.1, COLORS.counter).setOrigin(0),
+      this.add.rectangle(0, counterY + 18, width, height * COUNTER_BAND_FRACTION, COLORS.counter).setOrigin(0),
     ]).setDepth(DEPTH.counter));
 
     // counter clutter: repeated condiment trios (reordered) plus a few props
@@ -345,14 +356,20 @@ export class GameScene extends Phaser.Scene {
       keep(makeCounterProp(this, width * fx, propY, kind).setDepth(DEPTH.counter + 1)),
     );
 
-    // receipt spindle near the left end of the counter; served orders pile here
-    this.spikeX = width * 0.06;
-    this.spikeY = counterY + 12;
-    keep(makeReceiptSpike(this, this.spikeX, this.spikeY).setDepth(DEPTH.counter + 2));
+    // receipt spindle dropped to stove level, just left of the stove
+    this.spikeX = width * 0.2;
+    this.spikeY = this.stoveY();
+    keep(makeReceiptSpike(this, this.spikeX, this.spikeY).setDepth(DEPTH.prep).setScale(ui));
+
+    // vintage cash register right of the stove; the running score lives in its window
+    const register = makeCashRegister(this, width * 0.8, this.stoveY(), formatMoney(this.score));
+    register.container.setDepth(DEPTH.prep).setScale(ui);
+    this.registerScore = register.scoreText;
+    keep(register.container);
 
     // receding checker floor between counter and HUD
-    const floorY = counterY + 18 + height * 0.1;
-    keep(drawPerspectiveFloor(this, floorY, height * HUD_TOP_FRACTION, width));
+    const floorY = counterY + 18 + height * COUNTER_BAND_FRACTION;
+    keep(drawPerspectiveFloor(this, floorY, height, width));
 
     // re-seat receipts already on the spike against the rebuilt geometry
     for (const r of this.receipts) {
@@ -373,6 +390,26 @@ export class GameScene extends Phaser.Scene {
     this.tweens.add({
       targets: label, alpha: 0, delay: 1100, duration: 500,
       onComplete: () => label.destroy(),
+    });
+  }
+
+  /** Update the cash-register display and pop it. */
+  private setRegisterScore(cents: number) {
+    this.score = cents;
+    if (!this.registerScore) return;
+    this.registerScore.setText(formatMoney(cents));
+    this.tweens.add({
+      targets: this.registerScore, scaleX: 1.25, scaleY: 1.25,
+      duration: 90, yoyo: true, ease: 'Quad.Out',
+    });
+  }
+
+  /** Buzz the register score on a wrong keystroke (was the HUD score flash). */
+  private flashRegister() {
+    if (!this.registerScore) return;
+    this.tweens.add({
+      targets: this.registerScore, scaleX: 1.3, scaleY: 1.3,
+      duration: 60, yoyo: true, repeat: 1,
     });
   }
 
@@ -427,7 +464,7 @@ export class GameScene extends Phaser.Scene {
 
     // Money on the board + a couple of receipts already impaled, as if a few
     // orders went out earlier this shift. One strike already cost us a plate.
-    this.hud.setScore(1875);
+    this.setRegisterScore(1875);
     this.hud.setStrikes(1);
     this.impaleReceipt(this.scale.width * 0.34, this.counterY());
     this.impaleReceipt(this.scale.width * 0.62, this.counterY());
