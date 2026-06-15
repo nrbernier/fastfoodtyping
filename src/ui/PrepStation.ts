@@ -19,8 +19,17 @@ export class PrepStation {
     private depth = 0,
   ) {
     this.bowl = scene.add.graphics();
-    this.bowl.fillStyle(COLORS.counter, 1).fillEllipse(0, 0, 150, 44);
-    this.bowl.fillStyle(COLORS.counterEdge, 1).fillEllipse(0, -6, 130, 30);
+    // stove top: stainless range body + cook surface with a dark rim
+    this.bowl.fillStyle(COLORS.counter, 1).fillEllipse(0, 0, 168, 48);
+    this.bowl.fillStyle(COLORS.counterEdge, 1).fillEllipse(0, -8, 150, 36);
+    this.bowl.lineStyle(2, COLORS.darkHex, 1).strokeEllipse(0, -8, 150, 36);
+    // burner ring under the pan
+    this.bowl.lineStyle(3, COLORS.darkHex, 0.55).strokeEllipse(0, -10, 78, 24);
+    // red cooking pan on the burner
+    this.bowl.fillStyle(COLORS.redHex, 1).fillEllipse(0, -18, 86, 30);
+    this.bowl.lineStyle(3, COLORS.darkHex, 1).strokeEllipse(0, -18, 86, 30);
+    this.bowl.fillStyle(0xb83227, 1).fillEllipse(0, -20, 66, 20); // darker interior
+    this.bowl.fillStyle(COLORS.darkHex, 1).fillRect(42, -22, 26, 5); // handle
     this.root = scene.add.container(x, y, [this.bowl]).setDepth(depth);
     scene.time.addEvent({ delay: 900, loop: true, callback: () => this.steam() });
   }
