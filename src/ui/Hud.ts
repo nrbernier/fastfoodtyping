@@ -1,5 +1,4 @@
 import Phaser from 'phaser';
-import { COLORS } from './theme';
 import { makePlateIcon } from './scenery';
 
 const PLATE_RADIUS = 17;
