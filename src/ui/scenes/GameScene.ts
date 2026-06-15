@@ -12,6 +12,7 @@ import { DinerBackdrop } from '../DinerBackdrop';
 import { drawPerspectiveFloor, makeCondimentGroup, makeCounterProp, makeReceiptSpike, makeSmallReceipt } from '../scenery';
 import { applyPaperGrain } from '../texture';
 import { SHIFTS } from '../../core/shifts';
+import { mulberry32 } from '../../core/rng';
 
 const HUD_TOP_FRACTION = 0.86;
 const COUNTER_Y_FRACTION = 0.58;
@@ -44,13 +45,20 @@ export class GameScene extends Phaser.Scene {
   private lastW = 0;
   private lastH = 0;
   private uiScale = 1;
+  // Demo mode: seed a fixed busy state, then freeze the shift clock (no time
+  // advance, no spawns, no patience drain) while leaving every tween/idle
+  // animation running. Used by the self-contained design-preview build.
+  private demo = false;
+  private demoSeed = 1;
 
   constructor() {
     super('game');
   }
 
-  init(data: { config: ShiftConfig }) {
+  init(data: { config: ShiftConfig; demo?: boolean; seed?: number }) {
     this.config = data.config;
+    this.demo = data.demo ?? false;
+    this.demoSeed = data.seed ?? 1;
   }
 
   create() {
@@ -60,7 +68,12 @@ export class GameScene extends Phaser.Scene {
     this.gamePaused = false;
     this.cleanupFns = [];
     this.maxSlots = width < 700 ? 3 : 4;
-    this.engine = new ShiftEngine({ config: this.config, maxCustomersCap: this.maxSlots });
+    this.engine = new ShiftEngine({
+      config: this.config,
+      maxCustomersCap: this.maxSlots,
+      // A fixed seed makes the frozen demo state reproducible shot-to-shot.
+      rng: this.demo ? mulberry32(this.demoSeed) : undefined,
+    });
     this.shiftElapsedMs = 0;
     this.receipts = [];
 
@@ -80,27 +93,31 @@ export class GameScene extends Phaser.Scene {
 
     this.wireEngineEvents();
 
-    const detach = attachPhysicalKeyboard(window, (ch) => this.onChar(ch));
-    this.cleanupFns.push(detach);
+    // The design preview never takes input and must always keep animating, so
+    // it skips the keyboard, touch "tap to start", and blur/visibility pauses.
+    if (!this.demo) {
+      const detach = attachPhysicalKeyboard(window, (ch) => this.onChar(ch));
+      this.cleanupFns.push(detach);
 
-    if (isTouchDevice()) {
-      this.hidden = createHiddenInput(document, (ch) => this.onChar(ch));
-      this.cleanupFns.push(() => this.hidden?.destroy());
-      this.pauseGame('TAP TO START YOUR SHIFT\n(the keyboard is your grill)');
+      if (isTouchDevice()) {
+        this.hidden = createHiddenInput(document, (ch) => this.onChar(ch));
+        this.cleanupFns.push(() => this.hidden?.destroy());
+        this.pauseGame('TAP TO START YOUR SHIFT\n(the keyboard is your grill)');
+      }
+
+      const onBlur = () => this.pauseGame();
+      window.addEventListener('blur', onBlur);
+      this.cleanupFns.push(() => window.removeEventListener('blur', onBlur));
+      const onVis = () => {
+        if (document.visibilityState === 'hidden') this.pauseGame();
+      };
+      document.addEventListener('visibilitychange', onVis);
+      this.cleanupFns.push(() => document.removeEventListener('visibilitychange', onVis));
+
+      this.input.on('pointerdown', () => {
+        if (this.gamePaused) this.resumeGame();
+      });
     }
-
-    const onBlur = () => this.pauseGame();
-    window.addEventListener('blur', onBlur);
-    this.cleanupFns.push(() => window.removeEventListener('blur', onBlur));
-    const onVis = () => {
-      if (document.visibilityState === 'hidden') this.pauseGame();
-    };
-    document.addEventListener('visibilitychange', onVis);
-    this.cleanupFns.push(() => document.removeEventListener('visibilitychange', onVis));
-
-    this.input.on('pointerdown', () => {
-      if (this.gamePaused) this.resumeGame();
-    });
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       for (const fn of this.cleanupFns) fn();
@@ -129,9 +146,19 @@ export class GameScene extends Phaser.Scene {
     };
     this.scale.on(Phaser.Scale.Events.RESIZE, onResize);
     this.cleanupFns.push(() => this.scale.off(Phaser.Scale.Events.RESIZE, onResize));
+
+    if (this.demo) this.seedDemo();
   }
 
   update(_time: number, delta: number) {
+    // Frozen demo: keep redrawing patience bars (so the jitter animation lives)
+    // but never advance the clock, spawn, or drain patience.
+    if (this.demo) {
+      for (const c of this.engine.activeCustomers) {
+        this.views.get(c.id)?.updatePatience(c.patienceMs / c.patienceTotalMs);
+      }
+      return;
+    }
     if (this.gamePaused || this.engine.isOver) return;
     this.shiftElapsedMs += delta;
     this.clockText.setText(clockLabel(this.config.durationMs, this.shiftElapsedMs));
@@ -362,6 +389,62 @@ export class GameScene extends Phaser.Scene {
       angle: Phaser.Math.Between(-8, 8),
       duration: 380,
       ease: 'Quad.In',
+    });
+  }
+
+  // ---- demo / design preview ----
+
+  /**
+   * Drive the real engine (seeded) into a representative "busy mid-shift" state,
+   * then leave it frozen: a full counter, one order locked and half-typed, a
+   * couple of served receipts piled on the spike, and money on the board. Idle
+   * animations (neon flicker, customer bob, patience jitter, tip floats) keep
+   * running via tweens — only the shift clock is stopped.
+   */
+  private seedDemo() {
+    // Fast-forward the engine (no rendering) until the counter fills up.
+    let safety = 0;
+    while (this.engine.activeCustomers.length < this.maxSlots && safety++ < 600) {
+      this.engine.update(120);
+    }
+
+    // Hand each seated customer a pleasant, varied patience so nobody is mid-
+    // bolt (a frozen 5%-patience bar reads as a bug, not a busy diner).
+    const fracs = [0.82, 0.5, 0.31, 0.66];
+    const seated = [...this.engine.activeCustomers].sort((a, b) => a.slot - b.slot);
+    seated.forEach((c, i) => {
+      c.patienceMs = c.patienceTotalMs * (fracs[i] ?? 0.6);
+    });
+
+    // Lock onto the front customer and type their order halfway, so one ticket
+    // shows the active highlight + revealed letters.
+    const front = seated[0];
+    if (front) {
+      const norm = front.order.normalized;
+      const n = Math.max(1, Math.ceil(norm.length / 2));
+      for (let i = 0; i < n; i++) this.engine.handleKey(norm[i]);
+    }
+
+    // Money on the board + a couple of receipts already impaled, as if a few
+    // orders went out earlier this shift. One strike already cost us a plate.
+    this.hud.setScore(1875);
+    this.hud.setStrikes(1);
+    this.impaleReceipt(this.scale.width * 0.34, this.counterY());
+    this.impaleReceipt(this.scale.width * 0.62, this.counterY());
+
+    // Paint patience bars once for the initial frame (update() keeps them live).
+    for (const c of this.engine.activeCustomers) {
+      this.views.get(c.id)?.updatePatience(c.patienceMs / c.patienceTotalMs);
+    }
+
+    // A gentle recurring tip float keeps the "service" feeling alive — pop it
+    // above a seated customer (like a real serve) so it never covers the menu.
+    const tipper = seated[seated.length - 1] ?? front;
+    const tipX = tipper ? this.slotX(tipper.slot) + this.jitterFor(tipper.id) : this.scale.width * 0.7;
+    const tipY = this.customerY() - 150 * this.uiScale;
+    this.time.addEvent({
+      delay: 3400, loop: true,
+      callback: () => this.popTip(tipX, tipY, 1500),
     });
   }
 
