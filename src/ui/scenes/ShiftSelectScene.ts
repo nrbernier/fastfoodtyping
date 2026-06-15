@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { SHIFTS } from '../../core/shifts';
+import { formatMoney } from '../../core/money';
 import { SaveStore, safeLocalStorage } from '../../persistence/storage';
 import { COLORS, FONTS, makeButton } from '../theme';
 import { applyPaperGrain } from '../texture';
@@ -52,7 +53,7 @@ export class ShiftSelectScene extends Phaser.Scene {
       const best = save.highScores[shift.id];
       if (best) {
         this.add
-          .text(width / 2, y + 26, `best ......... $${best}`, {
+          .text(width / 2, y + 26, `best ......... ${formatMoney(best)}`, {
             fontFamily: FONTS.mono,
             fontSize: '14px',
             color: COLORS.cream,
