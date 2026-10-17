@@ -11,6 +11,7 @@ export const SHIFTS: readonly ShiftConfig[] = [
     patienceMs: { start: 14_000, end: 11_000 },
     tierWeights: { start: { t1: 1, t2: 0, t3: 0 }, end: { t1: 0.7, t2: 0.3, t3: 0 } },
     wordsPerOrder: { start: 1, end: 1 },
+    countChance: { start: 0, end: 0 },
   },
   {
     id: 'tuesday',
@@ -22,6 +23,7 @@ export const SHIFTS: readonly ShiftConfig[] = [
     patienceMs: { start: 12_000, end: 9500 },
     tierWeights: { start: { t1: 0.6, t2: 0.4, t3: 0 }, end: { t1: 0.3, t2: 0.6, t3: 0.1 } },
     wordsPerOrder: { start: 1, end: 1.5 },
+    countChance: { start: 0.04, end: 0.08 },
   },
   {
     id: 'wednesday',
@@ -33,6 +35,7 @@ export const SHIFTS: readonly ShiftConfig[] = [
     patienceMs: { start: 11_000, end: 8500 },
     tierWeights: { start: { t1: 0.3, t2: 0.5, t3: 0.2 }, end: { t1: 0.1, t2: 0.4, t3: 0.5 } },
     wordsPerOrder: { start: 1.5, end: 2 },
+    countChance: { start: 0.08, end: 0.08 },
   },
   {
     id: 'thursday',
@@ -44,6 +47,7 @@ export const SHIFTS: readonly ShiftConfig[] = [
     patienceMs: { start: 10_000, end: 7500 },
     tierWeights: { start: { t1: 0.1, t2: 0.4, t3: 0.5 }, end: { t1: 0, t2: 0.2, t3: 0.8 } },
     wordsPerOrder: { start: 2, end: 2.5 },
+    countChance: { start: 0.08, end: 0.08 },
   },
   {
     id: 'friday',
@@ -55,6 +59,7 @@ export const SHIFTS: readonly ShiftConfig[] = [
     patienceMs: { start: 9000, end: 6500 },
     tierWeights: { start: { t1: 0, t2: 0.3, t3: 0.7 }, end: { t1: 0, t2: 0, t3: 1 } },
     wordsPerOrder: { start: 2, end: 3 },
+    countChance: { start: 0.06, end: 0.06 },
   },
 ];
 
@@ -72,4 +77,5 @@ export const OVERTIME: ShiftConfig = {
   patienceMs: { start: 12_000, end: 4000 },
   tierWeights: { start: { t1: 0.5, t2: 0.4, t3: 0.1 }, end: { t1: 0, t2: 0, t3: 1 } },
   wordsPerOrder: { start: 1, end: 3 },
+  countChance: { start: 0.03, end: 0.08 },
 };

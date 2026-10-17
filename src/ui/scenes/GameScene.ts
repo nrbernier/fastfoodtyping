@@ -5,6 +5,7 @@ import { attachPhysicalKeyboard, createHiddenInput, isTouchDevice, type HiddenIn
 import { formatMoney } from '../../core/money';
 import { clockLabel } from '../clock';
 import { CustomerView } from '../CustomerView';
+import { pickPose } from '../assets';
 import { Hud } from '../Hud';
 import { PrepStation } from '../PrepStation';
 import { COLORS, FONTS, makeStarburst } from '../theme';
@@ -188,9 +189,12 @@ export class GameScene extends Phaser.Scene {
 
     e.on('customerArrived', ({ customer }) => {
       this.orderWords.set(customer.id, customer.order.words);
+      const seated = new Set([...this.views.values()].map((v) => v.character));
+      const pose = pickPose(customer.order, seated, Math.random);
       const view = new CustomerView(
         this,
         customer,
+        pose,
         this.slotX(customer.slot) + this.jitterFor(customer.id),
         this.customerY(),
         DEPTH.ticket,

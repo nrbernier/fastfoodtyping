@@ -17,6 +17,13 @@ export function comboMultiplier(cleanStreak: number): number {
   return Math.min(1 + 0.25 * cleanStreak, 3);
 }
 
+/** Reading the Finger-Counter's hand pays 1.5x. */
+export function specialMultiplier(order: Order): number {
+  return order.fingers ? 1.5 : 1;
+}
+
 export function orderTip(order: Order, patienceFractionLeft: number, cleanStreak: number): number {
-  return Math.round(baseTip(order) * patienceMultiplier(patienceFractionLeft) * comboMultiplier(cleanStreak));
+  return Math.round(
+    baseTip(order) * patienceMultiplier(patienceFractionLeft) * comboMultiplier(cleanStreak) * specialMultiplier(order),
+  );
 }

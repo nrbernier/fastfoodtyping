@@ -5,6 +5,14 @@ export interface Order {
   text: string;
   /** Lowercased, accent-stripped form used for matching */
   normalized: string;
+  /** Menu tier the order was drawn from; 3 = the weird generated dishes */
+  tier: 1 | 2 | 3;
+  /**
+   * Finger-Counter special: how many he wants (1–5). The first word is that
+   * count spelled out ("three pancakes"); the ticket hides it, so the player
+   * has to read it off his raised fingers.
+   */
+  fingers?: number;
 }
 
 export interface CustomerState {
@@ -28,6 +36,8 @@ export interface OrderParams {
   tierWeights: TierWeights;
   /** Fractional 1..3; e.g. 1.4 = 40% chance of 2 words (tier 3 only) */
   wordsPerOrder: number;
+  /** 0..1 chance a non-weird order becomes a Finger-Counter special; default 0 */
+  countChance?: number;
 }
 
 export interface ShiftConfig {
@@ -42,6 +52,7 @@ export interface ShiftConfig {
   patienceMs: { start: number; end: number };
   tierWeights: { start: TierWeights; end: TierWeights };
   wordsPerOrder: { start: number; end: number };
+  countChance: { start: number; end: number };
 }
 
 export interface LiveParams {

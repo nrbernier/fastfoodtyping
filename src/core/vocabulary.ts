@@ -62,3 +62,15 @@ export const DISH_FORMS: readonly string[] = [
   'pretzels', 'tacos', 'brownies', 'burrito', 'calzone', 'cobbler',
   'compote', 'crepes', 'velouté', 'yogurt', 'ziti',
 ];
+
+/** Finger-Counter special — the count he holds up, by finger total (index 0 = one). */
+export const COUNT_WORDS: readonly string[] = ['one', 'two', 'three', 'four', 'five'];
+
+/** Finger-Counter special — dishes you can order several of, as [singular, plural]. */
+export const COUNTABLE: readonly (readonly [string, string])[] = [
+  ['burger', 'burgers'], ['malt', 'malts'], ['shake', 'shakes'], ['pie', 'pies'],
+  ['donut', 'donuts'], ['waffle', 'waffles'], ['pancake', 'pancakes'],
+  ['sundae', 'sundaes'], ['float', 'floats'], ['biscuit', 'biscuits'],
+  ['soda', 'sodas'], ['cola', 'colas'], ['melt', 'melts'], ['coffee', 'coffees'],
+  ['egg', 'eggs'], ['salad', 'salads'],
+];

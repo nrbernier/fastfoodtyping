@@ -4,7 +4,7 @@ import { formatMoney } from '../../core/money';
 import { SaveStore, safeLocalStorage } from '../../persistence/storage';
 import { COLORS, FONTS, makeButton, makeStarburst } from '../theme';
 import { applyPaperGrain } from '../texture';
-import { CHARACTERS, PLACEHOLDER_KEY } from '../assets';
+import { PLACEHOLDER_KEY, TITLE_LINEUP } from '../assets';
 
 export class TitleScene extends Phaser.Scene {
   constructor() {
@@ -21,9 +21,8 @@ export class TitleScene extends Phaser.Scene {
     this.drawCheckerboard(height - 64, 64);
 
     // cast lineup standing on the checkerboard strip with a gentle idle bob
-    const lineup = CHARACTERS.slice(0, 5);
-    lineup.forEach((c, i) => {
-      const key = this.textures.exists(c.key) ? c.key : PLACEHOLDER_KEY;
+    TITLE_LINEUP.forEach((pose, i) => {
+      const key = this.textures.exists(pose) ? pose : PLACEHOLDER_KEY;
       const x = width * (0.16 + 0.17 * i);
       const img = this.add.image(x, height - 60, key).setOrigin(0.5, 1);
       img.setScale(Math.min(1, 150 / img.height));

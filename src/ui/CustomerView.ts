@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { CustomerState } from '../core/types';
-import { characterKeyFor, PLACEHOLDER_KEY } from './assets';
+import { PLACEHOLDER_KEY } from './assets';
+import type { PoseDef } from './cast';
 import { COLORS, makeLiveTicket, makeStarburst, type LiveTicket } from './theme';
 
 const SPRITE_HEIGHT = 175;
@@ -12,6 +13,8 @@ const MIN_TICKET_SCALE = 0.78;
 
 export class CustomerView extends Phaser.GameObjects.Container {
   readonly customerId: number;
+  /** Who is standing here, so the scene never seats the same person twice. */
+  readonly character: string;
   private ticket: LiveTicket;
   private bar: Phaser.GameObjects.Graphics;
   private sprite: Phaser.GameObjects.Image;
@@ -25,6 +28,7 @@ export class CustomerView extends Phaser.GameObjects.Container {
   constructor(
     scene: Phaser.Scene,
     customer: CustomerState,
+    pose: PoseDef,
     x: number,
     y: number,
     ticketDepth = 50,
@@ -34,19 +38,22 @@ export class CustomerView extends Phaser.GameObjects.Container {
   ) {
     super(scene, x, y);
     this.customerId = customer.id;
+    this.character = pose.character;
     this.ticketDepth = ticketDepth;
     this.activeTicketDepth = activeTicketDepth;
     this.uiScale = uiScale;
 
-    const wanted = characterKeyFor(customer.id);
-    const key = scene.textures.exists(wanted) ? wanted : PLACEHOLDER_KEY;
+    const key = scene.textures.exists(pose.key) ? pose.key : PLACEHOLDER_KEY;
     this.sprite = scene.add.image(0, 0, key).setOrigin(0.5, 1);
     this.sprite.setScale(SPRITE_HEIGHT / this.sprite.height);
 
     // The order ticket is NOT a child of this container: it lives at scene level
     // on a high depth so the order you're typing is never hidden behind the
     // counter, props, or HUD. It trails the customer via positionTicket().
-    this.ticket = makeLiveTicket(scene, x, y, customer.order.text);
+    // A Finger-Counter special hides its count word: read it off his hand.
+    const { order } = customer;
+    const hidden = order.fingers ? order.words[0].length : 0;
+    this.ticket = makeLiveTicket(scene, x, y, order.text, undefined, hidden);
     // ticketHalf1 is the ticket's half-height at scale 1. positionTicket scales
     // it by ticketScale() (which floors at MIN_TICKET_SCALE) so the bubble stays
     // legible even when the customer sprite shrinks; the per-seat stagger still
