@@ -13,6 +13,7 @@ const TEST_CONFIG: ShiftConfig = {
   patienceMs: { start: 3000, end: 3000 },
   tierWeights: { start: { t1: 1, t2: 0, t3: 0 }, end: { t1: 1, t2: 0, t3: 0 } },
   wordsPerOrder: { start: 1, end: 1 },
+  countChance: { start: 0, end: 0 },
 };
 
 function makeEngine(overrides: Partial<ShiftConfig> = {}) {

@@ -113,12 +113,15 @@ export function makeLiveTicket(
   y: number,
   text: string,
   maxWidth = 280,
+  hiddenChars = 0,
 ): LiveTicket {
   const style = { fontFamily: FONTS.mono, fontSize: '22px', align: 'center' as const };
   const typed = scene.add.text(0, 0, '', { ...style, color: COLORS.green }).setOrigin(0, 0.5);
   const caret = scene.add.text(0, 0, '_', { ...style, color: COLORS.red }).setOrigin(0, 0.5);
   const rest = scene.add.text(0, 0, text, { ...style, color: COLORS.dark }).setOrigin(0, 0.5);
 
+  // Size the paper for the fully revealed order, which can be wider than its
+  // hidden form ("? pancakes" -> "three pancakes").
   const w = Math.min(maxWidth, rest.width + 28);
   const h = rest.height + 16;
   const shadow = scene.add.rectangle(3, 3, w, h, COLORS.darkHex, 0.35).setOrigin(0.5);
@@ -130,7 +133,8 @@ export function makeLiveTicket(
 
   function update(typedCount: number) {
     const done = text.slice(0, typedCount);
-    const remaining = text.slice(typedCount);
+    // The first `hiddenChars` stay a single "?" until the player has typed past them.
+    const remaining = typedCount < hiddenChars ? `?${text.slice(hiddenChars)}` : text.slice(typedCount);
     typed.setText(done);
     rest.setText(remaining);
     caret.setVisible(typedCount < text.length); // no trailing caret once finished

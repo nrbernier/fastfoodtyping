@@ -3,7 +3,7 @@ import { baseTip, comboMultiplier, orderTip, patienceMultiplier } from '../../sr
 import type { Order } from '../../src/core/types';
 
 function order(text: string): Order {
-  return { words: text.split(' '), text, normalized: text };
+  return { words: text.split(' '), text, normalized: text, tier: 1 };
 }
 
 describe('scoring', () => {
@@ -28,5 +28,11 @@ describe('scoring', () => {
   it('orderTip combines all three, rounded', () => {
     // 36 * 1.5 * 1.5 = 81
     expect(orderTip(order('zebra souffle'), 0.6, 2)).toBe(81);
+  });
+
+  it('pays 1.5x for reading the Finger-Counter\'s hand', () => {
+    const plain = order('three pancakes');
+    const special = { ...plain, fingers: 3 };
+    expect(orderTip(special, 0, 0)).toBe(Math.round(orderTip(plain, 0, 0) * 1.5));
   });
 });
