@@ -23,18 +23,20 @@ marks the Finger-Counter poses (`fingers: 1–5`) used only for his special orde
 ## Processing
 
 `node tools/process-art.mjs [id ...]` turns each scan into
-`public/characters/<id>.png`. The paper outside the figure becomes transparent,
-paper enclosed by the outline stays cream, ink is recolored charcoal, and the
-result is trimmed and scaled to 256px tall. Thin-line figures whose head
-outlines have gaps get a wider outline close (`CLOSE_OVERRIDES` in the script).
+`public/characters/<id>.png`. The background is the paper a round brush can
+reach from the scan's edge without touching ink: it traces the outline but
+can't slip through small breaks in it, so faces stay cream. Ink is recolored
+charcoal and the result is trimmed and scaled to 256px tall. A few figures need
+a bigger brush (`BRUSH_OVERRIDES`) or an invisible seam across an outline the
+artist left open (`SEALS`).
+
+`s-29-311` and `s-29-314` had a neighbouring figure's hand painted out of the
+cut by hand.
 
 To add a pose, cut it from the scan into `stivers/`, add it to `cast.ts`, and
 run the script for its id.
 
 ## Earlier art
 
-The previous AI-generated cast (Recraft v3, styled on the *Food Chain Magnate*
-box art) is still in this folder and `public/characters/` under its old names
-(`housewife.png`, `robot.png`, ...) along with its tools (`tools/recraft-*.mjs`,
-`tools/fix-*.py`, `tools/clean-corners.py`). The game no longer loads it. The
-standalone demo (`demo/gen-assets.mjs`) still inlines those files.
+The previous AI-generated cast (Recraft v3) and its tools were removed; they
+remain in git history before the vintage-cast change.

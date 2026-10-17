@@ -12,11 +12,12 @@ const fontDir = path.join(root, 'public', 'fonts');
 
 const b64 = (p) => fs.readFileSync(p).toString('base64');
 
-// --- character textures (key -> data URI), keys match src/ui/assets.ts ---
-const CHARACTERS = [
-  'housewife', 'businessman', 'kid', 'grandma', 'cowboy',
-  'teenager', 'waiter', 'robot', 'alien', 'beatnik',
-];
+// --- character textures (key -> data URI), one per processed pose; keys are
+// the file names, matching the pose keys in src/ui/cast.ts ---
+const CHARACTERS = fs.readdirSync(charDir)
+  .filter((f) => f.endsWith('.png'))
+  .map((f) => path.parse(f).name)
+  .sort();
 const charEntries = CHARACTERS.map((key) => {
   const uri = `data:image/png;base64,${b64(path.join(charDir, `${key}.png`))}`;
   return `  ${JSON.stringify(key)}: ${JSON.stringify(uri)},`;
