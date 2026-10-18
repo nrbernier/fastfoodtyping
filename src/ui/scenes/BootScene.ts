@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { CHARACTERS, PLACEHOLDER_KEY } from '../assets';
 import { COLORS, FONTS } from '../theme';
 import { buildPaperGrain } from '../texture';
-import { kitchenArt } from '../dishArt';
+import { loadKitchenArt } from '../Kitchen';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -22,25 +22,8 @@ export class BootScene extends Phaser.Scene {
     // Wait for webfonts so Phaser never rasterizes fallback fonts into text
     // objects. fonts.ready resolves even when a font fails — safe offline.
     const ready: Promise<unknown> = document.fonts?.ready ?? Promise.resolve();
-    Promise.allSettled([ready, ...kitchenArt().map(({ key, svg }) => this.addSvgTexture(key, svg))])
+    Promise.allSettled([ready, loadKitchenArt(this)])
       .finally(() => this.scene.start('title'));
-  }
-
-  /** Rasterize an SVG document into a texture (dishes, pot, cloche). */
-  private addSvgTexture(key: string, svg: string): Promise<void> {
-    if (this.textures.exists(key)) return Promise.resolve();
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => {
-        this.textures.addImage(key, img);
-        resolve();
-      };
-      img.onerror = () => {
-        console.warn(`kitchen art failed to render: ${key}`);
-        reject(new Error(key));
-      };
-      img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-    });
   }
 
   /** Cream card with a slab "?" — used when a character texture is missing. */
