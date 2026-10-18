@@ -82,4 +82,23 @@ describe('TypingEngine', () => {
     expect(engine.handleKey('b', remaining)).toEqual({ kind: 'locked', customerId: 1 });
     expect(engine.locked).toBe(1);
   });
+
+  it('makes case count on exact (house) orders but not on regular ones', () => {
+    const e = new TypingEngine();
+    const house = [{ id: 7, normalized: "Mel's BLT", exact: true }];
+    expect(e.handleKey('m', house).kind).toBe('mistake');
+    expect(e.handleKey('M', house).kind).toBe('locked');
+    for (const ch of "el's BL") expect(e.handleKey(ch, house).kind).not.toBe('mistake');
+    expect(e.handleKey('t', house).kind).toBe('mistake');
+    expect(e.handleKey('T', house).kind).toBe('completed');
+    const plain = new TypingEngine();
+    expect(plain.handleKey('B', [{ id: 1, normalized: 'bacon' }]).kind).toBe('locked');
+  });
+
+  it("accepts a phone's curly apostrophe for a straight one", () => {
+    const e = new TypingEngine();
+    const house = [{ id: 1, normalized: "Joe's", exact: true }];
+    for (const ch of 'Joe') e.handleKey(ch, house);
+    expect(e.handleKey('\u2019', house).kind).toBe('progress');
+  });
 });

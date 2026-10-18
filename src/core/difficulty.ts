@@ -26,6 +26,7 @@ export function paramsAt(config: ShiftConfig, elapsedMs: number): LiveParams {
       tierWeights: mixTiers(config.tierWeights.start, config.tierWeights.end, t),
       wordsPerOrder: lerp(config.wordsPerOrder.start, config.wordsPerOrder.end, t),
       countChance: lerp(config.countChance.start, config.countChance.end, t),
+      houseChance: lerp(config.houseChance.start, config.houseChance.end, t),
     },
   };
 }

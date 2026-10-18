@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { OrderGenerator, wordWeight } from '../../src/core/orderGenerator';
 import { mulberry32 } from '../../src/core/rng';
-import { COUNT_WORDS, COUNTABLE, TIER1 } from '../../src/core/vocabulary';
+import { COUNT_WORDS, COUNTABLE, HOUSE_ORDERS, TIER1 } from '../../src/core/vocabulary';
 import type { OrderParams } from '../../src/core/types';
 
 const T1_ONLY: OrderParams = { tierWeights: { t1: 1, t2: 0, t3: 0 }, wordsPerOrder: 1 };
@@ -122,5 +122,19 @@ describe('OrderGenerator', () => {
       const { words } = gen.next(T3_ONLY, new Set());
       expect(new Set(words).size).toBe(words.length);
     }
+  });
+
+  it('serves house orders exactly as written when houseChance is on', () => {
+    const gen = new OrderGenerator(mulberry32(24));
+    const order = gen.next({ ...T1_ONLY, houseChance: 1 }, new Set(['m']));
+    expect(HOUSE_ORDERS).toContain(order.text);
+    expect(order.exact).toBe(true);
+    expect(order.normalized).toBe(order.text);
+    expect(order.normalized[0].toLowerCase()).not.toBe('m');
+  });
+
+  it('never serves house orders by default', () => {
+    const gen = new OrderGenerator(mulberry32(25));
+    for (let i = 0; i < 500; i++) expect(gen.next(T1_ONLY, new Set()).exact).toBeUndefined();
   });
 });

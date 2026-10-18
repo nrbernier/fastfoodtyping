@@ -5,7 +5,7 @@ export interface Order {
   words: string[];
   /** Display text: words joined with single spaces */
   text: string;
-  /** Lowercased, accent-stripped form used for matching */
+  /** Accent-stripped form used for matching; lowercased unless `exact` */
   normalized: string;
   /** Menu tier the order was drawn from; 3 = the weird generated dishes */
   tier: 1 | 2 | 3;
@@ -15,6 +15,8 @@ export interface Order {
    * has to read it off his raised fingers.
    */
   fingers?: number;
+  /** House order: capitals and punctuation must be typed exactly as written. */
+  exact?: boolean;
 }
 
 export interface CustomerState {
@@ -40,6 +42,8 @@ export interface OrderParams {
   wordsPerOrder: number;
   /** 0..1 chance a non-weird order becomes a Finger-Counter special; default 0 */
   countChance?: number;
+  /** 0..1 chance an order is a house order with capitals and punctuation; default 0 */
+  houseChance?: number;
 }
 
 export interface ShiftConfig {
@@ -55,6 +59,7 @@ export interface ShiftConfig {
   tierWeights: { start: TierWeights; end: TierWeights };
   wordsPerOrder: { start: number; end: number };
   countChance: { start: number; end: number };
+  houseChance: { start: number; end: number };
 }
 
 export interface LiveParams {

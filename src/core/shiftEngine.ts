@@ -14,6 +14,8 @@ export interface ShiftEngineOptions {
   maxCustomersCap?: number;
   /** Letters and pairs to work into more orders (see practiceFocus). */
   focus?: Focus;
+  /** House orders with capitals and punctuation; on by default. */
+  houseOrders?: boolean;
 }
 
 const FIRST_SPAWN_MS = 800;
@@ -29,6 +31,7 @@ export class ShiftEngine {
 
   private readonly config: ShiftConfig;
   private readonly cap: number;
+  private readonly houseOrders: boolean;
   private readonly rng: Rng;
   private readonly typing = new TypingEngine();
   private readonly generator: OrderGenerator;
@@ -49,6 +52,7 @@ export class ShiftEngine {
   constructor(opts: ShiftEngineOptions) {
     this.config = opts.config;
     this.cap = opts.maxCustomersCap ?? 4;
+    this.houseOrders = opts.houseOrders ?? true;
     this.rng = opts.rng ?? mulberry32(Date.now() >>> 0);
     this.generator = new OrderGenerator(this.rng, opts.focus);
   }
@@ -112,7 +116,7 @@ export class ShiftEngine {
 
   handleKey(char: string): void {
     if (this.over) return;
-    const orders = this.activeCustomers.map((c) => ({ id: c.id, normalized: c.order.normalized }));
+    const orders = this.activeCustomers.map((c) => ({ id: c.id, normalized: c.order.normalized, exact: c.order.exact }));
     const res = this.typing.handleKey(char, orders);
     this.tallyKey(res);
     switch (res.kind) {
@@ -155,8 +159,9 @@ export class ShiftEngine {
   }
 
   private spawn(params: LiveParams): void {
-    const usedLetters = new Set(this.activeCustomers.map((c) => c.order.normalized[0]));
-    const order = this.generator.next(params.order, usedLetters);
+    const usedLetters = new Set(this.activeCustomers.map((c) => c.order.normalized[0].toLowerCase()));
+    const orderParams = this.houseOrders ? params.order : { ...params.order, houseChance: 0 };
+    const order = this.generator.next(orderParams, usedLetters);
     // Pick a random free slot (not always the leftmost) so a lone customer
     // isn't always parked at the same seat.
     const usedSlots = new Set(this.activeCustomers.map((c) => c.slot));

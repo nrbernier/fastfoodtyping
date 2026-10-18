@@ -12,6 +12,7 @@ export const SHIFTS: readonly ShiftConfig[] = [
     tierWeights: { start: { t1: 1, t2: 0, t3: 0 }, end: { t1: 0.7, t2: 0.3, t3: 0 } },
     wordsPerOrder: { start: 1, end: 1 },
     countChance: { start: 0, end: 0 },
+    houseChance: { start: 0, end: 0 },
   },
   {
     id: 'tuesday',
@@ -24,6 +25,7 @@ export const SHIFTS: readonly ShiftConfig[] = [
     tierWeights: { start: { t1: 0.6, t2: 0.4, t3: 0 }, end: { t1: 0.3, t2: 0.6, t3: 0.1 } },
     wordsPerOrder: { start: 1, end: 1.5 },
     countChance: { start: 0.04, end: 0.08 },
+    houseChance: { start: 0, end: 0 },
   },
   {
     id: 'wednesday',
@@ -36,6 +38,7 @@ export const SHIFTS: readonly ShiftConfig[] = [
     tierWeights: { start: { t1: 0.3, t2: 0.5, t3: 0.2 }, end: { t1: 0.1, t2: 0.4, t3: 0.5 } },
     wordsPerOrder: { start: 1.5, end: 2 },
     countChance: { start: 0.08, end: 0.08 },
+    houseChance: { start: 0.04, end: 0.08 },
   },
   {
     id: 'thursday',
@@ -48,6 +51,7 @@ export const SHIFTS: readonly ShiftConfig[] = [
     tierWeights: { start: { t1: 0.1, t2: 0.4, t3: 0.5 }, end: { t1: 0, t2: 0.2, t3: 0.8 } },
     wordsPerOrder: { start: 2, end: 2.5 },
     countChance: { start: 0.08, end: 0.08 },
+    houseChance: { start: 0.08, end: 0.12 },
   },
   {
     id: 'friday',
@@ -60,6 +64,7 @@ export const SHIFTS: readonly ShiftConfig[] = [
     tierWeights: { start: { t1: 0, t2: 0.3, t3: 0.7 }, end: { t1: 0, t2: 0, t3: 1 } },
     wordsPerOrder: { start: 2, end: 3 },
     countChance: { start: 0.06, end: 0.06 },
+    houseChance: { start: 0.1, end: 0.15 },
   },
 ];
 
@@ -78,4 +83,5 @@ export const OVERTIME: ShiftConfig = {
   tierWeights: { start: { t1: 0.5, t2: 0.4, t3: 0.1 }, end: { t1: 0, t2: 0, t3: 1 } },
   wordsPerOrder: { start: 1, end: 3 },
   countChance: { start: 0.03, end: 0.08 },
+  houseChance: { start: 0, end: 0.12 },
 };

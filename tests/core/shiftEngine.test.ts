@@ -14,6 +14,7 @@ const TEST_CONFIG: ShiftConfig = {
   tierWeights: { start: { t1: 1, t2: 0, t3: 0 }, end: { t1: 1, t2: 0, t3: 0 } },
   wordsPerOrder: { start: 1, end: 1 },
   countChance: { start: 0, end: 0 },
+  houseChance: { start: 0, end: 0 },
 };
 
 function makeEngine(overrides: Partial<ShiftConfig> = {}) {
