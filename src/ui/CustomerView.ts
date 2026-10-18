@@ -18,6 +18,7 @@ export class CustomerView extends Phaser.GameObjects.Container {
   private bar: Phaser.GameObjects.Graphics;
   private sprite: Phaser.GameObjects.Image;
   private ticketHalf1: number; // ticket half-height measured at scale 1
+  private ticketHalfW1: number; // and half-width
   private ticketStaggerPx: number;
   private ticketDepth: number;
   private activeTicketDepth: number;
@@ -62,7 +63,9 @@ export class CustomerView extends Phaser.GameObjects.Container {
     // legible even when the customer sprite shrinks; the per-seat stagger still
     // scales with uiScale (it's a layout offset, not a bubble dimension) and lifts
     // alternating seats so long neighbouring tickets never collide horizontally.
-    this.ticketHalf1 = this.ticket.container.getBounds().height / 2;
+    const bounds = this.ticket.container.getBounds();
+    this.ticketHalf1 = bounds.height / 2;
+    this.ticketHalfW1 = bounds.width / 2;
     this.ticketStaggerPx = ticketStaggerPx;
     this.ticket.setBaseScale(this.ticketScale());
     this.ticket.container.setDepth(ticketDepth).setScale(0);
@@ -97,7 +100,7 @@ export class CustomerView extends Phaser.GameObjects.Container {
       this.ticketHalf1 * this.ticketScale() +
       this.ticketStaggerPx * this.uiScale;
     // Keep long tickets on screen at the end seats.
-    const half = this.ticket.container.getBounds().width / 2;
+    const half = this.ticketHalfW1 * this.ticketScale() * (this.locked ? 1.12 : 1);
     const w = this.scene.scale.width;
     const x = half * 2 + 8 < w ? Phaser.Math.Clamp(this.x, half + 4, w - half - 4) : w / 2;
     this.ticket.container.setPosition(x, y);

@@ -5,6 +5,7 @@ import Phaser from 'phaser';
 import { GameScene } from '../src/ui/scenes/GameScene';
 import { CHARACTERS } from '../src/ui/assets';
 import { buildPaperGrain } from '../src/ui/texture';
+import { loadKitchenArt } from '../src/ui/Kitchen';
 import { SHIFTS } from '../src/core/shifts';
 import { CHARACTER_DATA_URIS, FONT_FACE_CSS } from './assets.generated';
 
@@ -31,7 +32,9 @@ class DemoBoot extends Phaser.Scene {
   create() {
     buildPaperGrain(this);
     const ready: Promise<unknown> = document.fonts?.ready ?? Promise.resolve();
-    ready.finally(() => this.scene.start('game', { config: DEMO_SHIFT, demo: true, seed: DEMO_SEED }));
+    Promise.allSettled([ready, loadKitchenArt(this)]).finally(() =>
+      this.scene.start('game', { config: DEMO_SHIFT, demo: true, seed: DEMO_SEED }),
+    );
   }
 }
 

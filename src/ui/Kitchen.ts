@@ -2,9 +2,28 @@ import Phaser from 'phaser';
 import type { Order } from '../core/types';
 import { COLORS, FONTS } from './theme';
 import {
-  ART_SCALE, BURNER_KEY, CLOCHE_BASE_KEY, CLOCHE_LID_KEY, DRINKS, dishTextureKey, FLAME_KEY, POT_KEY, SMOKE_COLORS,
+  ART_SCALE, BURNER_KEY, kitchenArt, CLOCHE_BASE_KEY, CLOCHE_LID_KEY, DRINKS, dishTextureKey, FLAME_KEY, POT_KEY, SMOKE_COLORS,
 } from './dishArt';
 import { servingFor } from './dishes';
+
+/** Rasterize every kitchen drawing (dishes, pot, cloche) into a texture. */
+export function loadKitchenArt(scene: Phaser.Scene): Promise<unknown> {
+  return Promise.allSettled(kitchenArt().map(({ key, svg }) => {
+    if (scene.textures.exists(key)) return Promise.resolve();
+    return new Promise<void>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        scene.textures.addImage(key, img);
+        resolve();
+      };
+      img.onerror = () => {
+        console.warn(`kitchen art failed to render: ${key}`);
+        reject(new Error(key));
+      };
+      img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+    });
+  }));
+}
 
 export interface KitchenLayout {
   /** Pot centre and the y its burner stands on, in the front panel. */
