@@ -47,7 +47,6 @@ export const POSES: PoseDef[] = [
   pose('s-03-021', 'slim'),
   pose('s-09-087', 'slim'),
   pose('s-17-179', 'slim'),
-  pose('s-20-211', 'slim'),
   pose('s-22-232', 'slim'),
   pose('s-30-329', 'slim'),
   // The Boater — long-nosed gent in a straw hat
