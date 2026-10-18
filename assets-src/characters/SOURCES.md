@@ -23,12 +23,18 @@ marks the Finger-Counter poses (`fingers: 1–5`) used only for his special orde
 ## Processing
 
 `node tools/process-art.mjs [id ...]` turns each scan into
-`public/characters/<id>.png`. The background is the paper a round brush can
-reach from the scan's edge without touching ink: it traces the outline but
-can't slip through small breaks in it, so faces stay cream. Ink is recolored
-charcoal and the result is trimmed and scaled to 256px tall. A few figures need
-a bigger brush (`BRUSH_OVERRIDES`) or an invisible seam across an outline the
-artist left open (`SEALS`).
+`public/characters/<id>.png` using the algorithm in `tools/cutout-core.mjs`:
+the background is the paper a round brush can reach from the scan's edge
+without touching ink, so it can't slip through small breaks in an outline and
+faces stay cream. The paper is split into regions, each wholly see-through or
+solid; small pockets the brush couldn't fit into are cleared automatically.
+Ink is recolored charcoal and the result is trimmed and scaled to 256px tall.
+
+Per-figure fixes live in `cutout-fixes.json`: brush size, invisible closing
+lines across open outlines (`seals`), and points whose region is forced
+see-through (`clear`) or solid (`fill`). They're made in the Cut-out Fixer
+page, which runs the same core in the browser; `CUTOUT_EXPORT=<file> node
+tools/process-art.mjs` writes the scan data it loads.
 
 `s-29-311` and `s-29-314` had a neighbouring figure's hand painted out of the
 cut by hand.
