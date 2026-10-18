@@ -1,11 +1,10 @@
 import Phaser from 'phaser';
 import type { CustomerState } from '../core/types';
 import { PLACEHOLDER_KEY } from './assets';
-import type { PoseDef } from './cast';
+import { HEADS, type PoseDef } from './cast';
 import { COLORS, makeLiveTicket, makeStarburst, type LiveTicket } from './theme';
+import { fitPose, SPRITE_HEIGHT } from './headFit';
 
-const SPRITE_HEIGHT = 175;
-const BAR_Y = -(SPRITE_HEIGHT + 12);
 const TICKET_GAP = 30;
 // The customer sprite may shrink to uiScale 0.5 on a phone, but the order
 // bubble must stay readable, so the ticket scales on its own higher floor.
@@ -24,6 +23,7 @@ export class CustomerView extends Phaser.GameObjects.Container {
   private activeTicketDepth: number;
   private uiScale: number;
   private locked = false;
+  private barY = -(SPRITE_HEIGHT + 12);
 
   constructor(
     scene: Phaser.Scene,
@@ -45,7 +45,10 @@ export class CustomerView extends Phaser.GameObjects.Container {
 
     const key = scene.textures.exists(pose.key) ? pose.key : PLACEHOLDER_KEY;
     this.sprite = scene.add.image(0, 0, key).setOrigin(0.5, 1);
-    this.sprite.setScale(SPRITE_HEIGHT / this.sprite.height);
+    const fit = fitPose(key === pose.key ? HEADS[pose.key] : undefined, this.sprite.height);
+    this.sprite.setScale(fit.scale).setY(fit.bottom);
+    // Patience bar just above the figure, but never higher than for a full-height pose.
+    this.barY = Math.max(fit.top, -SPRITE_HEIGHT) - 12;
 
     // The order ticket is NOT a child of this container: it lives at scene level
     // on a high depth so the order you're typing is never hidden behind the
@@ -85,7 +88,7 @@ export class CustomerView extends Phaser.GameObjects.Container {
   /** Keep the floating ticket pinned above the customer (position + fade only;
    *  scale is left to the intro/lock/complete tweens). */
   private positionTicket = () => {
-    const barTopWorld = this.y + BAR_Y * this.uiScale;
+    const barTopWorld = this.y + this.barY * this.uiScale;
     // The bubble's own height clears by ticketScale() (its floored scale); the
     // bar anchor and stagger clear by uiScale (they track the shrinking sprite).
     const y =
@@ -153,9 +156,9 @@ export class CustomerView extends Phaser.GameObjects.Container {
     const f = Math.max(0, fraction);
     const color = f > 0.5 ? 0x27ae60 : f > 0.2 ? COLORS.mustardHex : COLORS.redHex;
     this.bar.clear();
-    this.bar.lineStyle(1, COLORS.darkHex, 1).strokeRect(-40, BAR_Y, 80, 8);
-    this.bar.fillStyle(COLORS.darkHex, 0.15).fillRect(-40, BAR_Y, 80, 8);
-    this.bar.fillStyle(color, 1).fillRect(-40, BAR_Y, 80 * f, 8);
+    this.bar.lineStyle(1, COLORS.darkHex, 1).strokeRect(-40, this.barY, 80, 8);
+    this.bar.fillStyle(COLORS.darkHex, 0.15).fillRect(-40, this.barY, 80, 8);
+    this.bar.fillStyle(color, 1).fillRect(-40, this.barY, 80 * f, 8);
     // jitter when about to storm out
     this.sprite.setAngle(f < 0.2 ? Math.sin(this.scene.time.now / 50) * 4 : 0);
   }
