@@ -2,15 +2,34 @@ import type { LiveParams, ShiftConfig, TierWeights } from './types';
 
 /**
  * How forgiving the counter is. Slower paces stretch every customer's
- * patience and space out arrivals; the orders themselves stay the same.
+ * patience, space out arrivals, and give long orders extra time per letter
+ * (phone typists need it most); the orders themselves stay the same.
  */
 export type Pace = 'easygoing' | 'steady' | 'rush';
 
-export const PACES: Readonly<Record<Pace, { label: string; patience: number; spawn: number }>> = {
-  easygoing: { label: 'Easygoing', patience: 1.5, spawn: 1.3 },
-  steady: { label: 'Steady', patience: 1.25, spawn: 1.15 },
-  rush: { label: 'Rush hour', patience: 1, spawn: 1 },
+export interface PaceDef {
+  label: string;
+  /** Multiplies the shift's patience */
+  patience: number;
+  /** Multiplies the time between arrivals */
+  spawn: number;
+  /** Extra patience per character past the first LONG_ORDER_FREE */
+  perCharMs: number;
+}
+
+export const PACES: Readonly<Record<Pace, PaceDef>> = {
+  easygoing: { label: 'Easygoing', patience: 1.8, spawn: 1.5, perCharMs: 450 },
+  steady: { label: 'Steady', patience: 1.35, spawn: 1.2, perCharMs: 250 },
+  rush: { label: 'Rush hour', patience: 1, spawn: 1, perCharMs: 0 },
 };
+
+/** Characters an order gets for free before the per-character allowance starts. */
+export const LONG_ORDER_FREE = 6;
+
+/** Patience for one order: the shift's patience plus the pace's allowance for its length. */
+export function orderPatienceMs(baseMs: number, orderLength: number, pace: Pace): number {
+  return baseMs + PACES[pace].perCharMs * Math.max(0, orderLength - LONG_ORDER_FREE);
+}
 
 export const PACE_ORDER: readonly Pace[] = ['easygoing', 'steady', 'rush'];
 
