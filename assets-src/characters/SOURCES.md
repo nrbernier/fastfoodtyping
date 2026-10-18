@@ -46,3 +46,8 @@ run the script for its id.
 
 The previous AI-generated cast (Recraft v3) and its tools were removed; they
 remain in git history before the vintage-cast change.
+
+## Edited art
+
+`s-17-180` (man in the water) had its whirlpool replaced with a hand-drawn
+wooden washtub by `tools/draw-tub.py`; the unedited cut is in `originals/`.
