@@ -1,4 +1,5 @@
 // End-of-shift receipt: the printed lines and the missed-key heatmap colours.
+import { PACES } from '../core/difficulty';
 import { formatMoney } from '../core/money';
 import { trickiestPair, weakLetters, type KeyTally } from '../core/typingStats';
 import type { OrderTiming, ShiftResult } from '../core/types';
@@ -31,6 +32,7 @@ export function receiptRows(r: ShiftResult, shiftName: string): ReceiptRow[] {
     { kind: 'title', text: 'shift receipt' },
     { kind: 'rule' },
     { kind: 'title', text: shiftName },
+    { kind: 'title', text: `pace: ${PACES[r.pace].label}` },
     { kind: 'rule' },
     stat('orders served', String(r.served)),
     stat('walked out', String(r.strikes)),

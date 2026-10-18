@@ -85,6 +85,8 @@ export class GameScene extends Phaser.Scene {
       // Weak keys from earlier shifts turn up in more of this shift's orders.
       focus: this.demo ? undefined : practiceFocus(store.typingTally()),
       houseOrders: store.settings().fancyOrders,
+      // The design preview keeps the original full-speed pacing.
+      pace: this.demo ? 'rush' : store.settings().pace,
     });
     this.shiftElapsedMs = 0;
     this.receipts = [];

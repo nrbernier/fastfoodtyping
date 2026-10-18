@@ -1,5 +1,5 @@
 import { Emitter } from './emitter';
-import { paramsAt } from './difficulty';
+import { paramsAt, type Pace } from './difficulty';
 import { OrderGenerator, type Focus } from './orderGenerator';
 import { mulberry32, type Rng } from './rng';
 import { orderTip } from './scoring';
@@ -16,6 +16,8 @@ export interface ShiftEngineOptions {
   focus?: Focus;
   /** House orders with capitals and punctuation; on by default. */
   houseOrders?: boolean;
+  /** Patience and arrival pacing; defaults to the full-speed rush. */
+  pace?: Pace;
 }
 
 const FIRST_SPAWN_MS = 800;
@@ -32,6 +34,7 @@ export class ShiftEngine {
   private readonly config: ShiftConfig;
   private readonly cap: number;
   private readonly houseOrders: boolean;
+  private readonly pace: Pace;
   private readonly rng: Rng;
   private readonly typing = new TypingEngine();
   private readonly generator: OrderGenerator;
@@ -53,6 +56,7 @@ export class ShiftEngine {
     this.config = opts.config;
     this.cap = opts.maxCustomersCap ?? 4;
     this.houseOrders = opts.houseOrders ?? true;
+    this.pace = opts.pace ?? 'rush';
     this.rng = opts.rng ?? mulberry32(Date.now() >>> 0);
     this.generator = new OrderGenerator(this.rng, opts.focus);
   }
@@ -81,7 +85,7 @@ export class ShiftEngine {
   update(dtMs: number): void {
     if (this.over) return;
     this.elapsed += dtMs;
-    const params = paramsAt(this.config, this.elapsed);
+    const params = paramsAt(this.config, this.elapsed, this.pace);
     // The shift bell rings the instant the (finite) timer expires; Overtime
     // (durationMs = Infinity) never reaches time-up and ends only on strikes.
     const timeUp = Number.isFinite(this.config.durationMs) && this.elapsed >= this.config.durationMs;
@@ -225,6 +229,7 @@ export class ShiftEngine {
       wpm: minutes > 0 ? this.correctChars / 5 / minutes : 0,
       bestCombo: this.bestCombo,
       elapsedMs: this.elapsed,
+      pace: this.pace,
       tally: this.tally,
       fastest: this.fastest,
       slowest: this.slowest,
