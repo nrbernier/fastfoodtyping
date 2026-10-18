@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { lerp, mixTiers, PACES, paramsAt } from '../../src/core/difficulty';
+import { lerp, mixTiers, orderPatienceMs, PACES, paramsAt } from '../../src/core/difficulty';
 import { OVERTIME, SHIFTS } from '../../src/core/shifts';
 
 describe('lerp', () => {
@@ -68,5 +68,14 @@ describe('pace', () => {
       expect(slow.maxCustomers).toBe(rush.maxCustomers);
     }
     expect(paramsAt(SHIFTS[2], 30_000)).toEqual(rush);
+  });
+});
+
+describe('orderPatienceMs', () => {
+  it('gives long orders extra time on the slower paces only', () => {
+    expect(orderPatienceMs(10_000, 30, 'rush')).toBe(10_000);
+    expect(orderPatienceMs(10_000, 4, 'easygoing')).toBe(10_000);
+    expect(orderPatienceMs(10_000, 30, 'easygoing')).toBe(10_000 + 24 * PACES.easygoing.perCharMs);
+    expect(orderPatienceMs(10_000, 30, 'easygoing')).toBeGreaterThan(orderPatienceMs(10_000, 30, 'steady'));
   });
 });

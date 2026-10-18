@@ -1,5 +1,5 @@
 import { Emitter } from './emitter';
-import { paramsAt, type Pace } from './difficulty';
+import { orderPatienceMs, paramsAt, type Pace } from './difficulty';
 import { OrderGenerator, type Focus } from './orderGenerator';
 import { mulberry32, type Rng } from './rng';
 import { orderTip } from './scoring';
@@ -179,12 +179,13 @@ export class ShiftEngine {
     const slot = freeSlots.length > 0
       ? freeSlots[Math.floor(this.rng() * freeSlots.length)]
       : this.customers.length; // fallback: never reached while active < cap
+    const patience = orderPatienceMs(params.patienceMs, order.normalized.length, this.pace);
     const customer: CustomerState = {
       id: this.nextId++,
       slot,
       order,
-      patienceTotalMs: params.patienceMs,
-      patienceMs: params.patienceMs,
+      patienceTotalMs: patience,
+      patienceMs: patience,
       resolved: false,
     };
     this.customers.push(customer);
