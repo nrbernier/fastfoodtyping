@@ -3,6 +3,10 @@ export function attachPhysicalKeyboard(target: EventTarget, onChar: (c: string) 
   const handler = (e: Event) => {
     const ke = e as KeyboardEvent;
     if (ke.ctrlKey || ke.metaKey || ke.altKey) return;
+    // Keys typed into a text field (the mobile hidden input) also arrive via its
+    // input event; forwarding the keydown too would deliver every char twice.
+    const t = ke.target as Element | null;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
     if (ke.key.length !== 1) return;
     if (ke.key === ' ') ke.preventDefault(); // avoid page scroll
     onChar(ke.key);

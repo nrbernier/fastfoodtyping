@@ -23,6 +23,17 @@ describe('attachPhysicalKeyboard', () => {
     expect(chars).toEqual([]);
   });
 
+  it('ignores keys typed into a text field (the hidden input forwards those)', () => {
+    const chars: string[] = [];
+    const detach = attachPhysicalKeyboard(window, (c) => chars.push(c));
+    const el = document.createElement('input');
+    document.body.appendChild(el);
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', bubbles: true }));
+    el.remove();
+    detach();
+    expect(chars).toEqual([]);
+  });
+
   it('stops forwarding after detach', () => {
     const chars: string[] = [];
     const detach = attachPhysicalKeyboard(window, (c) => chars.push(c));
