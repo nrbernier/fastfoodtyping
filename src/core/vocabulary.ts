@@ -212,6 +212,31 @@ export const DISH_FORMS: readonly string[] = [
   'hash', 'platter', 'pie', 'tart', 'pot', 'pemmican',
 ];
 
+/**
+ * House orders: capitals and punctuation, typed exactly as written. They
+ * show up later in the week, and the player can switch them off.
+ */
+export const HOUSE_ORDERS: readonly string[] = [
+  "Mel's BLT", "Mrs. O'Brien's pie", 'a la mode, hold the onions', 'BLT, no mayo',
+  'eggs, over easy', "Joe's chili, extra hot", 'coffee, black', 'Denver omelet, no peppers',
+  'OJ, no pulp', 'Swiss on rye, toasted', 'burger, medium rare', 'fries, extra crispy!',
+  'tea, two sugars', 'malt, chocolate. Make it thick!', 'hash browns, well done',
+  "Sam's usual", 'pie, warmed up', 'the Blue Plate Special', 'Texas toast, extra butter',
+  'Philly cheesesteak, no peppers', 'Reuben, hold the kraut', 'Cobb salad, dressing on the side',
+  'BLT on white, light mayo', 'two eggs, sunny side up', "Mom's meat loaf", "Pop's pot roast",
+  'Waldorf salad, no grapes', 'pancakes, short stack', 'waffle, extra syrup', 'coffee, cream, no sugar',
+  'root beer float, two straws', 'Boston cream pie, please', 'Key lime pie, a big slice!',
+  'New York cheesecake', 'Mississippi mud pie', 'Buffalo wings, extra hot!', 'Kansas City ribs',
+  'Coney Island hot dog', 'Manhattan clam chowder', 'New England chowder, no crackers',
+  'Monte Cristo, extra jam', 'Any soup today?', 'Is the coffee hot?',
+  'What, no pickles?', 'Mac and cheese. Hurry!', 'grilled cheese, cut corners', 'Dr. Pepper float',
+  'Mr. Kim wants kimchi', 'Jack cheese, not Swiss', 'Hot dog: mustard, relish, onions',
+  'Eggs: scrambled, dry', 'Toast: rye, buttered', "Chef's choice", "Kids' meal, no crust",
+  'Ham on rye. Quick!', 'Liver and onions. Yes, really.', 'Jello: lime. Always lime.',
+  "Zeke's zesty zucchini", "Vera's veal cutlet", "Quincy's quiche", 'XL shake, extra whip',
+  'Jumbo shrimp, OK?', 'Tex-Mex chili, extra beans', 'two-egg special', 'all-day breakfast',
+];
+
 /** Finger-Counter special — the count he holds up, by finger total (index 0 = one). */
 export const COUNT_WORDS: readonly string[] = ['one', 'two', 'three', 'four', 'five'];
 

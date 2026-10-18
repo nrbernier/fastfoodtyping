@@ -1,6 +1,6 @@
 import { pick, type Rng } from './rng';
-import { normalizeText } from './text';
-import { COUNT_WORDS, COUNTABLE, DISH_FORMS, INGREDIENTS, PREPARATIONS, TIER1, TIER2 } from './vocabulary';
+import { normalizeText, stripAccents } from './text';
+import { COUNT_WORDS, COUNTABLE, DISH_FORMS, HOUSE_ORDERS, INGREDIENTS, PREPARATIONS, TIER1, TIER2 } from './vocabulary';
 import type { Order, OrderParams, TierWeights } from './types';
 
 /** Pool words are not reused while inside this many recent uses. */
@@ -26,6 +26,7 @@ interface Draft {
   words: string[];
   tier: 1 | 2 | 3;
   fingers?: number;
+  exact?: boolean;
 }
 
 export class OrderGenerator {
@@ -50,17 +51,22 @@ export class OrderGenerator {
       draft = this.candidate(params);
       const first = normalizeText(draft.words[0])[0];
       const fresh = !poolWords(draft).some((w) => this.recent.includes(w));
-      const repeats = new Set(draft.words).size < draft.words.length;
+      const repeats = !draft.exact && new Set(draft.words).size < draft.words.length;
       if (!excludeFirstLetters.has(first) && !repeats && (fresh || attempt >= FRESH_ATTEMPTS)) break;
     }
     for (const w of poolWords(draft)) this.markUsed(w);
     const text = draft.words.join(' ');
-    const order: Order = { words: draft.words, text, normalized: normalizeText(text), tier: draft.tier };
+    const normalized = draft.exact ? stripAccents(text) : normalizeText(text);
+    const order: Order = { words: draft.words, text, normalized, tier: draft.tier };
     if (draft.fingers) order.fingers = draft.fingers;
+    if (draft.exact) order.exact = true;
     return order;
   }
 
   private candidate(params: OrderParams): Draft {
+    if (this.rng() < (params.houseChance ?? 0)) {
+      return { words: this.draw(HOUSE_ORDERS).split(' '), tier: 2, exact: true };
+    }
     const tier = this.pickTier(params.tierWeights);
     if (tier !== 3 && this.rng() < (params.countChance ?? 0)) {
       const fingers = 1 + Math.floor(this.rng() * COUNT_WORDS.length);
@@ -118,7 +124,11 @@ export function wordWeight(entry: string, focus: Focus = {}): number {
   return w;
 }
 
-/** Words subject to the freshness window; a special's count word repeats freely. */
+/**
+ * Words subject to the freshness window; a special's count word repeats
+ * freely, and a house order counts as one entry.
+ */
 function poolWords(draft: Draft): string[] {
+  if (draft.exact) return [draft.words.join(' ')];
   return draft.fingers ? draft.words.slice(1) : draft.words;
 }

@@ -1,6 +1,6 @@
 import type { Order } from './types';
 
-/** Base tip in cents: 3¢ per letter (spaces excluded) — 1950s diner money. */
+/** Base tip in cents: 3¢ per character (spaces excluded) — 1950s diner money. */
 export function baseTip(order: Order): number {
   return 3 * order.normalized.replace(/ /g, '').length;
 }
@@ -17,9 +17,10 @@ export function comboMultiplier(cleanStreak: number): number {
   return Math.min(1 + 0.25 * cleanStreak, 3);
 }
 
-/** Reading the Finger-Counter's hand pays 1.5x. */
+/** Reading the Finger-Counter's hand pays 1.5x; a house order typed exactly, 1.25x. */
 export function specialMultiplier(order: Order): number {
-  return order.fingers ? 1.5 : 1;
+  if (order.fingers) return 1.5;
+  return order.exact ? 1.25 : 1;
 }
 
 export function orderTip(order: Order, patienceFractionLeft: number, cleanStreak: number): number {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { normalizeText } from '../../src/core/text';
-import { DISH_FORMS, INGREDIENTS, PREPARATIONS, TIER1, TIER2 } from '../../src/core/vocabulary';
+import { DISH_FORMS, HOUSE_ORDERS, INGREDIENTS, PREPARATIONS, TIER1, TIER2 } from '../../src/core/vocabulary';
 
 const ALL_POOLS = [TIER1, TIER2, PREPARATIONS, INGREDIENTS, DISH_FORMS];
 const ALL_WORDS = ALL_POOLS.flat().flatMap((entry) => entry.split(' '));
@@ -51,5 +51,14 @@ describe('vocabulary', () => {
       expect(w).not.toContain(' ');
       expect(w.length).toBeLessThanOrEqual(8);
     }
+  });
+
+  it('writes house orders with plain keyboard characters, starting on a letter', () => {
+    for (const entry of HOUSE_ORDERS) {
+      expect(entry, entry).toMatch(/^[A-Za-z][A-Za-z.,'!?:& -]*$/);
+      expect(entry, entry).not.toMatch(/  |^ | $/);
+      expect(entry, entry).toMatch(/[A-Z.,'!?:&-]/);
+    }
+    expect(new Set(HOUSE_ORDERS).size).toBe(HOUSE_ORDERS.length);
   });
 });

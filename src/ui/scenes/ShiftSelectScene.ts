@@ -12,7 +12,8 @@ export class ShiftSelectScene extends Phaser.Scene {
 
   create() {
     const { width, height } = this.scale;
-    const save = new SaveStore(safeLocalStorage()).load();
+    const store = new SaveStore(safeLocalStorage());
+    const save = store.load();
 
     // charcoal menu board on a teal wall
     this.add.rectangle(0, 0, width, height, COLORS.wall).setOrigin(0);
@@ -60,6 +61,21 @@ export class ShiftSelectScene extends Phaser.Scene {
           })
           .setOrigin(0.5, 0);
       }
+    });
+
+    // House orders (capitals and punctuation, from Wednesday on) can be switched off.
+    const toggleLabel = (on: boolean) => `[${on ? 'x' : ' '}] Caps & punctuation orders (Wed on)`;
+    const toggle = this.add
+      .text(width / 2, height * 0.83, toggleLabel(store.settings().fancyOrders), {
+        fontFamily: FONTS.mono,
+        fontSize: '15px',
+        color: COLORS.mustard,
+      })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+    toggle.on('pointerdown', () => {
+      const { fancyOrders } = store.updateSettings({ fancyOrders: !store.settings().fancyOrders });
+      toggle.setText(toggleLabel(fancyOrders));
     });
 
     makeButton(this, width / 2, height * 0.9, 'BACK', () => this.scene.start('title'));

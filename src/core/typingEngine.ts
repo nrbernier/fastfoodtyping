@@ -1,8 +1,15 @@
-import { normalizeText } from './text';
+import { plainPunctuation, stripAccents } from './text';
 
 export interface TypableOrder {
   id: number;
   normalized: string;
+  /** Case counts (house orders); otherwise a capital still matches its lowercase letter. */
+  exact?: boolean;
+}
+
+function matches(order: TypableOrder, index: number, char: string): boolean {
+  const expected = order.normalized[index];
+  return expected === char || (!order.exact && expected === char.toLowerCase());
 }
 
 export type KeyResult =
@@ -35,10 +42,10 @@ export class TypingEngine {
 
   handleKey(rawChar: string, orders: ReadonlyArray<TypableOrder>): KeyResult {
     if (rawChar.length !== 1) return { kind: 'ignored' };
-    const char = normalizeText(rawChar);
+    const char = stripAccents(plainPunctuation(rawChar));
 
     if (this.lockedId === null) {
-      const target = orders.find((o) => o.normalized[0] === char);
+      const target = orders.find((o) => matches(o, 0, char));
       if (!target) return { kind: 'mistake', customerId: null };
       this.lockedId = target.id;
       this.typed = 1;
@@ -53,7 +60,7 @@ export class TypingEngine {
       return this.handleKey(rawChar, orders);
     }
 
-    if (target.normalized[this.typed] !== char) {
+    if (!matches(target, this.typed, char)) {
       return { kind: 'mistake', customerId: target.id };
     }
 

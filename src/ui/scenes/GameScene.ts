@@ -74,13 +74,15 @@ export class GameScene extends Phaser.Scene {
     this.gamePaused = false;
     this.cleanupFns = [];
     this.maxSlots = width < 700 ? 3 : 4;
+    const store = new SaveStore(safeLocalStorage());
     this.engine = new ShiftEngine({
       config: this.config,
       maxCustomersCap: this.maxSlots,
       // A fixed seed makes the frozen demo state reproducible shot-to-shot.
       rng: this.demo ? mulberry32(this.demoSeed) : undefined,
       // Weak keys from earlier shifts turn up in more of this shift's orders.
-      focus: this.demo ? undefined : practiceFocus(new SaveStore(safeLocalStorage()).typingTally()),
+      focus: this.demo ? undefined : practiceFocus(store.typingTally()),
+      houseOrders: store.settings().fancyOrders,
     });
     this.shiftElapsedMs = 0;
     this.receipts = [];
