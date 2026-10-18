@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { lerp, mixTiers, paramsAt } from '../../src/core/difficulty';
+import { lerp, mixTiers, PACES, paramsAt } from '../../src/core/difficulty';
 import { OVERTIME, SHIFTS } from '../../src/core/shifts';
 
 describe('lerp', () => {
@@ -53,5 +53,20 @@ describe('shift definitions', () => {
     expect(p.spawnIntervalMs).toBeGreaterThanOrEqual(1500);
     expect(p.patienceMs).toBeGreaterThanOrEqual(4000);
     expect(p.order.wordsPerOrder).toBeLessThanOrEqual(3);
+  });
+});
+
+describe('pace', () => {
+  it('stretches patience and spacing on slower paces but leaves the orders alone', () => {
+    const rush = paramsAt(SHIFTS[2], 30_000, 'rush');
+    for (const pace of ['easygoing', 'steady'] as const) {
+      const slow = paramsAt(SHIFTS[2], 30_000, pace);
+      expect(slow.patienceMs).toBeCloseTo(rush.patienceMs * PACES[pace].patience);
+      expect(slow.spawnIntervalMs).toBeCloseTo(rush.spawnIntervalMs * PACES[pace].spawn);
+      expect(slow.patienceMs).toBeGreaterThan(rush.patienceMs);
+      expect(slow.order).toEqual(rush.order);
+      expect(slow.maxCustomers).toBe(rush.maxCustomers);
+    }
+    expect(paramsAt(SHIFTS[2], 30_000)).toEqual(rush);
   });
 });

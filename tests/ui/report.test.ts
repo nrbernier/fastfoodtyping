@@ -5,7 +5,7 @@ import { keyHeat, nextShiftTip, QUOTE_MAX, receiptRows } from '../../src/ui/repo
 
 const result: ShiftResult = {
   shiftId: 'monday', won: true, score: 142, served: 9, strikes: 1, accuracy: 0.9, wpm: 31.6,
-  bestCombo: 4, elapsedMs: 90_000, tally: { hits: { t: 9 }, misses: {}, pairMisses: { th: 2 } },
+  bestCombo: 4, elapsedMs: 90_000, pace: 'steady', tally: { hits: { t: 9 }, misses: {}, pairMisses: { th: 2 } },
   fastest: { text: 'malt', ms: 600, wpm: 80 },
   slowest: { text: 'irradiated huckleberry croquettes', ms: 12_000, wpm: 20 },
 };

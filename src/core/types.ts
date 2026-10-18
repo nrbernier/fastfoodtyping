@@ -1,3 +1,4 @@
+import type { Pace } from './difficulty';
 import type { KeyTally } from './typingStats';
 
 export interface Order {
@@ -87,6 +88,8 @@ export interface ShiftResult {
   wpm: number;
   bestCombo: number;
   elapsedMs: number;
+  /** Pace the shift was played at */
+  pace: Pace;
   /** Keystrokes per expected letter, for the report and next shift's focus */
   tally: KeyTally;
   fastest: OrderTiming | null;

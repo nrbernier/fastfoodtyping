@@ -1,8 +1,11 @@
+import type { Pace } from '../core/difficulty';
 import { emptyTally, mergeTally, type KeyTally } from '../core/typingStats';
 
 export interface Settings {
   /** Capitals and punctuation orders later in the week */
   fancyOrders: boolean;
+  /** How patient customers are and how quickly they arrive */
+  pace: Pace;
 }
 
 export interface SaveData {
@@ -15,7 +18,7 @@ export interface SaveData {
   settings?: Settings;
 }
 
-export const DEFAULT_SETTINGS: Settings = { fancyOrders: true };
+export const DEFAULT_SETTINGS: Settings = { fancyOrders: true, pace: 'steady' };
 
 export type StorageBacking = Pick<Storage, 'getItem' | 'setItem'>;
 

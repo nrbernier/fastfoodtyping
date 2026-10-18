@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { PACE_ORDER, PACES, type Pace } from '../../core/difficulty';
 import { SHIFTS } from '../../core/shifts';
 import { formatMoney } from '../../core/money';
 import { SaveStore, safeLocalStorage } from '../../persistence/storage';
@@ -39,7 +40,7 @@ export class ShiftSelectScene extends Phaser.Scene {
 
     SHIFTS.forEach((shift, i) => {
       const unlocked = i <= save.unlockedShift;
-      const y = height * 0.28 + i * Math.min(76, height * 0.12);
+      const y = height * 0.26 + i * Math.min(72, height * 0.105);
       makeButton(this, width / 2, y, shift.name, () => this.scene.start('game', { config: shift }), unlocked);
       if (!unlocked) {
         this.add
@@ -63,10 +64,25 @@ export class ShiftSelectScene extends Phaser.Scene {
       }
     });
 
+    // Pace: tap to cycle how patient customers are and how fast they arrive.
+    const paceLabel = (p: Pace) => `Pace: < ${PACES[p].label} >`;
+    const paceText = this.add
+      .text(width / 2, height * 0.79, paceLabel(store.settings().pace), {
+        fontFamily: FONTS.mono,
+        fontSize: '17px',
+        color: COLORS.cream,
+      })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+    paceText.on('pointerdown', () => {
+      const next = PACE_ORDER[(PACE_ORDER.indexOf(store.settings().pace) + 1) % PACE_ORDER.length];
+      paceText.setText(paceLabel(store.updateSettings({ pace: next }).pace));
+    });
+
     // House orders (capitals and punctuation, from Wednesday on) can be switched off.
     const toggleLabel = (on: boolean) => `[${on ? 'x' : ' '}] Caps & punctuation orders (Wed on)`;
     const toggle = this.add
-      .text(width / 2, height * 0.83, toggleLabel(store.settings().fancyOrders), {
+      .text(width / 2, height * 0.835, toggleLabel(store.settings().fancyOrders), {
         fontFamily: FONTS.mono,
         fontSize: '15px',
         color: COLORS.mustard,
@@ -78,7 +94,7 @@ export class ShiftSelectScene extends Phaser.Scene {
       toggle.setText(toggleLabel(fancyOrders));
     });
 
-    makeButton(this, width / 2, height * 0.9, 'BACK', () => this.scene.start('title'));
+    makeButton(this, width / 2, height * 0.91, 'BACK', () => this.scene.start('title'));
 
     applyPaperGrain(this);
   }
