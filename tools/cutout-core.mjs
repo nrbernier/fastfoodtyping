@@ -18,6 +18,9 @@
 //   fill:   [[x, y], ...] points whose region is made solid
 //   paint:  [[[x, y], ...], ...] polygons whose paper is made solid, for
 //           shapes left open by the scan (planks running off the edge)
+//   strokes: [{ mode: 'solid' | 'clear', r, pts: [[x, y], ...] }, ...]
+//           freehand brush strokes applied last, in order: 'solid' paints
+//           opaque, 'clear' erases to fully see-through (ink included)
 
 export const INK = [0x26, 0x22, 0x1e];
 export const CREAM = [0xf4, 0xe8, 0xcf];
@@ -224,6 +227,28 @@ export function cutout(grey, sw, sh, fix = {}) {
   const [figLabels, sizes] = label(figure, w, h);
   for (let i = 0; i < n; i++) if (figure[i] && sizes[figLabels[i]] < SPECK) figure[i] = 0;
 
+  // Freehand brush strokes: round brush stamped along each stroke.
+  const erased = new Uint8Array(n);
+  for (const st of fix.strokes ?? []) {
+    const r = st.r, val = st.mode === 'solid' ? 1 : 0;
+    const stamp = (cx, cy) => {
+      for (let y = Math.max(0, Math.floor(cy - r)); y <= Math.min(sh - 1, Math.ceil(cy + r)); y++) {
+        for (let x = Math.max(0, Math.floor(cx - r)); x <= Math.min(sw - 1, Math.ceil(cx + r)); x++) {
+          if ((x - cx) ** 2 + (y - cy) ** 2 > r * r) continue;
+          const i = (y + pad) * w + x + pad;
+          figure[i] = val; erased[i] = 1 - val;
+        }
+      }
+    };
+    const pts = st.pts;
+    stamp(pts[0][0], pts[0][1]);
+    for (let j = 1; j < pts.length; j++) {
+      const [ax, ay] = pts[j - 1], [bx, by] = pts[j];
+      const steps = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / Math.max(1, r / 2)));
+      for (let k = 1; k <= steps; k++) stamp(ax + ((bx - ax) * k) / steps, ay + ((by - ay) * k) / steps);
+    }
+  }
+
   // Anti-aliased ink just outside the figure keeps its soft edge.
   const toFigure = distanceSq(figure, w, h);
   const rgba = new Uint8ClampedArray(n * 4);
@@ -232,7 +257,7 @@ export function cutout(grey, sw, sh, fix = {}) {
     rgba[i * 4] = Math.round(INK[0] + (CREAM[0] - INK[0]) * t);
     rgba[i * 4 + 1] = Math.round(INK[1] + (CREAM[1] - INK[1]) * t);
     rgba[i * 4 + 2] = Math.round(INK[2] + (CREAM[2] - INK[2]) * t);
-    rgba[i * 4 + 3] = figure[i] ? 255 : toFigure[i] <= 4 ? 255 - data[i] : 0;
+    rgba[i * 4 + 3] = figure[i] ? 255 : erased[i] ? 0 : toFigure[i] <= 4 ? 255 - data[i] : 0;
   }
   return { w, h, pad, rgba, regions, solid, regionAt };
 }
