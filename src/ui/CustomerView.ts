@@ -93,9 +93,18 @@ export class CustomerView extends Phaser.GameObjects.Container {
       TICKET_GAP * this.uiScale -
       this.ticketHalf1 * this.ticketScale() +
       this.ticketStaggerPx * this.uiScale;
-    this.ticket.container.setPosition(this.x, y);
+    // Keep long tickets on screen at the end seats.
+    const half = this.ticket.container.getBounds().width / 2;
+    const w = this.scene.scale.width;
+    const x = half * 2 + 8 < w ? Phaser.Math.Clamp(this.x, half + 4, w - half - 4) : w / 2;
+    this.ticket.container.setPosition(x, y);
     this.ticket.container.setAlpha(this.alpha);
   };
+
+  /** Where the order ticket floats, so finished words can fall from it into the pot. */
+  get ticketPosition(): { x: number; y: number } {
+    return { x: this.ticket.container.x, y: this.ticket.container.y };
+  }
 
   /** Re-seat the customer and its trailing ticket after a viewport resize. */
   reposition(x: number, y: number) {

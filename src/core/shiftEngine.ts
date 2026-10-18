@@ -65,6 +65,11 @@ export class ShiftEngine {
     return this.customers.filter((c) => !c.resolved);
   }
 
+  /** The order of any customer seen this shift, served or not. */
+  orderOf(customerId: number): CustomerState['order'] | undefined {
+    return this.customers.find((c) => c.id === customerId)?.order;
+  }
+
   get lockedCustomerId(): number | null {
     return this.typing.locked;
   }

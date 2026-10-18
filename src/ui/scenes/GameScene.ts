@@ -9,20 +9,22 @@ import { clockLabel } from '../clock';
 import { CustomerView } from '../CustomerView';
 import { pickPose } from '../assets';
 import { Hud } from '../Hud';
-import { PrepStation } from '../PrepStation';
+import { Kitchen, type KitchenLayout } from '../Kitchen';
 import { COLORS, FONTS, makeStarburst } from '../theme';
 import { DinerBackdrop } from '../DinerBackdrop';
-import { drawPerspectiveFloor, makeCashRegister, makeCondimentGroup, makeCounterProp, makeReceiptSpike, makeSmallReceipt } from '../scenery';
+import { makeCashRegister, makeCondimentGroup, makeReceiptSpike, makeSmallReceipt } from '../scenery';
 import { applyPaperGrain } from '../texture';
 import { SHIFTS } from '../../core/shifts';
 import { mulberry32 } from '../../core/rng';
 
-const COUNTER_Y_FRACTION = 0.6;   // counter line a touch lower; wall has more room
-const STOVE_Y_FRACTION = 0.8;     // stove/prep level — spike + register flank it
-const COUNTER_BAND_FRACTION = 0.05; // shorter counter body (was 0.1) reclaims height
+const COUNTER_Y_FRACTION = 0.68;  // counter line low, so customers and tickets get most of the screen
+const STOVE_Y_FRACTION = 0.95;    // burner level in the front panel — spike + register flank the pot
+const COUNTER_TOP_FRACTION = 0.065; // depth of the counter top, seen in perspective
+const COUNTER_INSET = 22;          // how far the back edge of the counter top narrows in, per side
 // Tickets float above scenery (50). The order being typed jumps above the strike
 // plates (1000) too, but stays below the pause overlay (1100).
-const DEPTH = { backdrop: 0, customer: 5, counter: 10, prep: 12, hud: 20, overlay: 100, ticket: 50, ticketActive: 1001 } as const;
+// Dishes slide at lane depth: above the counter top, behind the condiments on its near edge.
+const DEPTH = { backdrop: 0, customer: 5, counter: 10, lane: 10.5, condiments: 11, dropped: 11.5, prep: 12, hud: 20, overlay: 100, ticket: 50, ticketActive: 1001 } as const;
 const CUSTOMER_SINK = 36; // px the customer's feet drop behind the counter, so it occludes their legs
 
 export class GameScene extends Phaser.Scene {
@@ -31,7 +33,7 @@ export class GameScene extends Phaser.Scene {
   private views = new Map<number, CustomerView>();
   private orderWords = new Map<number, string[]>();
   private hud!: Hud;
-  private prep!: PrepStation;
+  private kitchen!: Kitchen;
   private pauseOverlay!: Phaser.GameObjects.Container;
   private gamePaused = false;
   private maxSlots = 4;
@@ -95,7 +97,7 @@ export class GameScene extends Phaser.Scene {
         this.tweens.add({ targets: this.backdrop.neon, alpha: 0.35, duration: 60, yoyo: true, repeat: 1 });
       },
     });
-    this.prep = new PrepStation(this, this.stoveX(), this.stoveY(), DEPTH.prep);
+    this.kitchen = new Kitchen(this, this.kitchenLayout(), { pot: DEPTH.prep, lane: DEPTH.lane, dropped: DEPTH.dropped });
     this.hud = new Hud(this);
     this.hud.layout(width, height);
     this.buildPauseOverlay(width, height);
@@ -144,7 +146,7 @@ export class GameScene extends Phaser.Scene {
       this.lastW = w;
       this.lastH = h;
       this.layoutDiner(w, h); // recomputes this.uiScale
-      this.prep.reposition(this.stoveX(), this.stoveY());
+      this.kitchen.reposition(this.kitchenLayout());
       for (const c of this.engine.activeCustomers) {
         const view = this.views.get(c.id);
         view?.setUiScale(this.uiScale);
@@ -223,19 +225,22 @@ export class GameScene extends Phaser.Scene {
 
     e.on('wordCompleted', ({ customerId, wordIndex }) => {
       this.views.get(customerId)?.updateTyping(this.engine.typedCount);
-      const word = this.orderWords.get(customerId)?.[wordIndex];
-      if (word) this.prep.dropBox(word);
+      this.dropWord(customerId, wordIndex);
     });
 
     e.on('orderServed', ({ customerId, tip, finalWordIndex }) => {
-      const word = this.orderWords.get(customerId)?.[finalWordIndex];
-      if (word) this.prep.dropBox(word);
+      this.dropWord(customerId, finalWordIndex);
       const view = this.views.get(customerId);
       view?.flashComplete();
       const tx = view?.x ?? this.scale.width / 2;
       const ty = view?.y ?? this.scale.height * 0.4;
-      this.prep.serveDish(tx, ty, () => {
-        view?.serve(() => this.views.delete(customerId));
+      const order = this.engine.orderOf(customerId);
+      // The dish comes out once the last word has landed in the pot.
+      this.time.delayedCall(420, () => {
+        if (!order) return view?.serve(() => this.views.delete(customerId));
+        this.kitchen.serve(order, tx, () => {
+          this.time.delayedCall(250, () => view?.serve(() => this.views.delete(customerId)));
+        });
       });
       this.setRegisterScore(this.engine.score);
       this.impaleReceipt(tx, this.counterY());
@@ -251,7 +256,7 @@ export class GameScene extends Phaser.Scene {
 
     e.on('mistake', () => {
       this.flashRegister();
-      this.prep.shake();
+      this.kitchen.shake();
     });
 
     e.on('shiftEnded', ({ result }) => {
@@ -259,6 +264,15 @@ export class GameScene extends Phaser.Scene {
         this.scene.start('results', { config: this.config, result }),
       );
     });
+  }
+
+  /** A finished word falls from its ticket into the pot. */
+  private dropWord(customerId: number, wordIndex: number) {
+    const word = this.orderWords.get(customerId)?.[wordIndex];
+    const view = this.views.get(customerId);
+    if (!word || !view) return;
+    const { x, y } = view.ticketPosition;
+    this.kitchen.dropWord(word, x, y);
   }
 
   // ---- layout & scenery ----
@@ -278,6 +292,19 @@ export class GameScene extends Phaser.Scene {
 
   private stoveY(): number {
     return this.scale.height * STOVE_Y_FRACTION;
+  }
+
+  private counterTopHeight(): number {
+    return this.scale.height * COUNTER_TOP_FRACTION;
+  }
+
+  private kitchenLayout(): KitchenLayout {
+    return {
+      potX: this.stoveX(),
+      potBaseY: this.stoveY(),
+      laneY: this.counterY() + this.counterTopHeight() * 0.3,
+      scale: this.uiScale,
+    };
   }
 
   /** Y where a customer's feet rest (sink scaled so small customers tuck in). */
@@ -355,39 +382,43 @@ export class GameScene extends Phaser.Scene {
     clock.add(this.clockText);
     keep(clock);
 
-    // counter with red trim — explicit depth so it occludes customer legs
-    keep(this.add.container(0, 0, [
-      this.add.rectangle(0, counterY, width, 6, COLORS.redHex).setOrigin(0),
-      this.add.rectangle(0, counterY + 6, width, 12, COLORS.counterEdge).setOrigin(0),
-      this.add.rectangle(0, counterY + 18, width, height * COUNTER_BAND_FRACTION, COLORS.counter).setOrigin(0),
-    ]).setDepth(DEPTH.counter));
+    // Counter top in perspective (narrower at the back), red trim on the near
+    // edge, then the steel front panel down to the bottom. Explicit depth so it
+    // occludes the customers' legs.
+    const topH = height * COUNTER_TOP_FRACTION;
+    const frontY = counterY + topH;
+    const inset = COUNTER_INSET * ui;
+    const top = this.add.graphics();
+    top.fillStyle(COLORS.counter, 1).fillPoints([
+      new Phaser.Math.Vector2(inset, counterY), new Phaser.Math.Vector2(width - inset, counterY),
+      new Phaser.Math.Vector2(width, frontY), new Phaser.Math.Vector2(0, frontY),
+    ], true);
+    top.fillStyle(COLORS.redHex, 1).fillRect(0, counterY - 2, width, 4);
+    const panel = this.add.graphics();
+    panel.fillStyle(COLORS.redHex, 1).fillRect(0, frontY, width, 6);
+    // brushed steel, brightest down the middle
+    panel.fillGradientStyle(0xc3c8cc, 0xe0e3e5, 0xc3c8cc, 0xe0e3e5, 1).fillRect(0, frontY + 6, width / 2, height - frontY);
+    panel.fillGradientStyle(0xe0e3e5, 0xb9bec2, 0xe0e3e5, 0xb9bec2, 1).fillRect(width / 2, frontY + 6, width / 2, height - frontY);
+    keep(this.add.container(0, 0, [top, panel]).setDepth(DEPTH.counter));
 
-    // counter clutter: repeated condiment trios (reordered) plus a few props
-    const propY = counterY + 14;
-    [0.18, 0.46, 0.74].forEach((fx, i) =>
-      keep(makeCondimentGroup(this, width * fx, propY, i).setDepth(DEPTH.counter + 1)),
-    );
-    [[0.34, 2], [0.6, 0], [0.92, 3]].forEach(([fx, kind]) =>
-      keep(makeCounterProp(this, width * fx, propY, kind).setDepth(DEPTH.counter + 1)),
+    // Condiments stand in one row along the near edge, clustered in the gaps
+    // between seats so the lane behind them stays clear for sliding dishes.
+    const gaps = [0, ...Array.from({ length: this.maxSlots - 1 }, (_, i) => i + 1), this.maxSlots]
+      .map((g) => (g === 0 ? width * 0.05 : g === this.maxSlots ? width * 0.95 : (this.slotX(g - 1) + this.slotX(g)) / 2));
+    gaps.forEach((gx, i) =>
+      keep(makeCondimentGroup(this, gx, frontY - 2, i).setScale(ui).setDepth(DEPTH.condiments)),
     );
 
-    // Spike + register flank the stove at stove level. Depth prep+1 keeps them
-    // explicitly above the stove (DEPTH.prep) regardless of render-list order,
-    // so they're never swallowed by it on a narrow viewport.
-    // receipt spindle dropped to stove level, just left of the stove
-    this.spikeX = width * 0.2;
+    // Spike and register stand in the front panel either side of the pot.
+    this.spikeX = width * 0.16;
     this.spikeY = this.stoveY();
     keep(makeReceiptSpike(this, this.spikeX, this.spikeY).setDepth(DEPTH.prep + 1).setScale(ui));
 
-    // vintage cash register right of the stove; the running score lives in its window
-    const register = makeCashRegister(this, width * 0.8, this.stoveY(), formatMoney(this.score));
-    register.container.setDepth(DEPTH.prep + 1).setScale(ui * 1.2);
+    // vintage cash register right of the pot; the running score lives in its window
+    const register = makeCashRegister(this, width * 0.82, this.stoveY(), formatMoney(this.score));
+    register.container.setDepth(DEPTH.prep + 1).setScale(ui * 1.1);
     this.registerScore = register.scoreText;
     keep(register.container);
-
-    // receding checker floor between counter and HUD
-    const floorY = counterY + 18 + height * COUNTER_BAND_FRACTION;
-    keep(drawPerspectiveFloor(this, floorY, height, width));
 
     // re-seat receipts already on the spike against the rebuilt geometry
     for (const r of this.receipts) {
