@@ -1,32 +1,7 @@
 import Phaser from 'phaser';
 import { COLORS } from './palette';
 import { FONTS } from './theme';
-import { dishOutline, perspectiveFloorQuads } from './geom';
 
-const FLOOR_DARK = 0x2f6e6a;  // dark teal — recedes instead of vibrating
-const FLOOR_LIGHT = COLORS.creamHex;
-
-/** Draw a receding checker floor into a graphics object owned by the caller. */
-export function drawPerspectiveFloor(
-  scene: Phaser.Scene,
-  topY: number,
-  bottomY: number,
-  width: number,
-): Phaser.GameObjects.Graphics {
-  const g = scene.add.graphics();
-  const quads = perspectiveFloorQuads({
-    width, top: topY, bottom: bottomY, rows: 6, cols: 10, vanishInset: 0.32,
-  });
-  for (const q of quads) {
-    g.fillStyle(q.dark ? FLOOR_DARK : FLOOR_LIGHT, 1);
-    g.beginPath();
-    g.moveTo(q.points[0].x, q.points[0].y);
-    for (const pt of q.points.slice(1)) g.lineTo(pt.x, pt.y);
-    g.closePath();
-    g.fillPath();
-  }
-  return g;
-}
 
 /** Venetian-blind window: frame, daylight fill, slat lines. */
 export function makeWindowBlinds(
@@ -94,18 +69,6 @@ export function makeNeonSign(
   return scene.add.container(x, y, [glow, tube]);
 }
 
-/** A plated burger/shake that pops out of the bowl. */
-export function makeDish(scene: Phaser.Scene, x: number, y: number): Phaser.GameObjects.Container {
-  const plate = scene.add.graphics();
-  const ring = dishOutline(30).map((p) => new Phaser.Math.Vector2(p.x, p.y));
-  plate.fillStyle(COLORS.creamHex, 1).fillPoints(ring, true);
-  plate.lineStyle(2, COLORS.darkHex, 1).strokePoints(ring, true);
-  const food = scene.add.graphics();
-  food.fillStyle(COLORS.redHex, 1).fillEllipse(0, -5, 30, 13);   // patty
-  food.fillStyle(COLORS.mustardHex, 1).fillEllipse(0, -10, 24, 8); // bun top
-  return scene.add.container(x, y, [plate, food]);
-}
-
 /** Height of the steel spindle, exported so receipt stacking can reach the tip. */
 export const RECEIPT_SPIKE_HEIGHT = 100;
 
@@ -132,30 +95,6 @@ export function makeSmallReceipt(scene: Phaser.Scene, x: number, y: number): Pha
   // punch hole where the spike goes through
   const hole = scene.add.circle(0, -h / 2 + 3, 1.5, COLORS.darkHex, 1);
   return scene.add.container(x, y, [paper, lines, hole]);
-}
-
-/** Small counter prop selected by index (ketchup, napkins, cake stand, cup). */
-export function makeCounterProp(scene: Phaser.Scene, x: number, y: number, kind: number): Phaser.GameObjects.Container {
-  const g = scene.add.graphics();
-  switch (kind % 4) {
-    case 0: // ketchup bottle
-      g.fillStyle(COLORS.redHex, 1).fillRoundedRect(-6, -22, 12, 22, 3);
-      g.fillStyle(COLORS.darkHex, 1).fillRect(-3, -28, 6, 6);
-      break;
-    case 1: // napkin dispenser
-      g.fillStyle(COLORS.counterEdge, 1).fillRect(-12, -14, 24, 14);
-      g.fillStyle(COLORS.creamHex, 1).fillRect(-3, -20, 6, 8);
-      break;
-    case 2: // cake stand
-      g.fillStyle(COLORS.creamHex, 1).fillEllipse(0, 0, 34, 8);
-      g.fillStyle(COLORS.mustardHex, 1).fillTriangle(-12, 0, 12, 0, 0, -20);
-      break;
-    default: // coffee cup
-      g.fillStyle(COLORS.creamHex, 1).fillRoundedRect(-8, -12, 16, 12, 2);
-      g.lineStyle(2, COLORS.darkHex, 1).strokeCircle(11, -6, 4);
-      break;
-  }
-  return scene.add.container(x, y, [g]);
 }
 
 /** One condiment bottle/shaker centered at `dx` within a group. */

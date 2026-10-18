@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clockHandAngle, dishOutline, perspectiveFloorQuads, starburstPoints } from '../../src/ui/geom';
+import { clockHandAngle, starburstPoints } from '../../src/ui/geom';
 
 describe('starburstPoints', () => {
   it('produces two points per spike (outer + inner)', () => {
@@ -21,32 +21,6 @@ describe('starburstPoints', () => {
   });
 });
 
-describe('perspectiveFloorQuads', () => {
-  it('returns rows*cols quads tiling a trapezoid that narrows toward the top', () => {
-    const quads = perspectiveFloorQuads({
-      width: 800, top: 100, bottom: 300, rows: 4, cols: 8, vanishInset: 0.25,
-    });
-    expect(quads).toHaveLength(4 * 8);
-    const back = quads[0];
-    const front = quads[quads.length - 1];
-    expect(back.points[0].y).toBeCloseTo(100);
-    expect(front.points[2].y).toBeCloseTo(300);
-    const backLeft = Math.min(...back.points.map((p) => p.x));
-    const frontLeft = Math.min(...front.points.map((p) => p.x));
-    expect(backLeft).toBeGreaterThan(frontLeft);
-  });
-
-  it('alternates the checker flag across columns and rows', () => {
-    const quads = perspectiveFloorQuads({
-      width: 800, top: 100, bottom: 300, rows: 2, cols: 2, vanishInset: 0.25,
-    });
-    expect(quads[0].dark).toBe(true);
-    expect(quads[1].dark).toBe(false);
-    expect(quads[2].dark).toBe(false);
-    expect(quads[3].dark).toBe(true);
-  });
-});
-
 describe('clockHandAngle', () => {
   it('is -90deg (straight up) at the start and sweeps clockwise', () => {
     expect(clockHandAngle(0, 60000)).toBeCloseTo(-90);
@@ -58,12 +32,3 @@ describe('clockHandAngle', () => {
   });
 });
 
-describe('dishOutline', () => {
-  it('returns a closed plate ring wider than tall', () => {
-    const pts = dishOutline(60);
-    expect(pts.length).toBeGreaterThan(8);
-    const xs = pts.map((p) => p.x);
-    const ys = pts.map((p) => p.y);
-    expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(Math.max(...ys) - Math.min(...ys));
-  });
-});
