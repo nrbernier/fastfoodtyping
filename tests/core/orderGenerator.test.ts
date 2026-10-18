@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { OrderGenerator } from '../../src/core/orderGenerator';
+import { OrderGenerator, wordWeight } from '../../src/core/orderGenerator';
 import { mulberry32 } from '../../src/core/rng';
 import { COUNT_WORDS, COUNTABLE, TIER1 } from '../../src/core/vocabulary';
 import type { OrderParams } from '../../src/core/types';
@@ -87,6 +87,40 @@ describe('OrderGenerator', () => {
     const gen = new OrderGenerator(mulberry32(12));
     for (let i = 0; i < 100; i++) {
       expect(gen.next({ ...T3_ONLY, countChance: 1 }, new Set()).fingers).toBeUndefined();
+    }
+  });
+
+  it('serves rare letters more often than a uniform pick would', () => {
+    const gen = new OrderGenerator(mulberry32(21));
+    const uniform = TIER1.filter((w) => /[xzqj]/.test(w)).length / TIER1.length;
+    let hits = 0;
+    for (let i = 0; i < 2000; i++) if (/[xzqj]/.test(gen.next(T1_ONLY, new Set()).normalized)) hits++;
+    // The freshness window caps how often the few rare-letter words can repeat.
+    expect(hits / 2000).toBeGreaterThan(uniform * 1.25);
+  });
+
+  it('leans toward the practice focus', () => {
+    const plain = new OrderGenerator(mulberry32(22));
+    const focused = new OrderGenerator(mulberry32(22), { th: 4 });
+    const count = (gen: OrderGenerator) => {
+      let n = 0;
+      for (let i = 0; i < 2000; i++) if (gen.next(T3_ONLY, new Set()).normalized.includes('th')) n++;
+      return n;
+    };
+    expect(count(focused)).toBeGreaterThan(count(plain) * 1.5);
+  });
+
+  it('weights a word once per rare letter and focus key it contains', () => {
+    expect(wordWeight('toast')).toBe(1);
+    expect(wordWeight('jazz')).toBe(3);
+    expect(wordWeight('the broth', { th: 2, b: 1 })).toBe(4);
+  });
+
+  it('never repeats a word within one order', () => {
+    const gen = new OrderGenerator(mulberry32(23));
+    for (let i = 0; i < 2000; i++) {
+      const { words } = gen.next(T3_ONLY, new Set());
+      expect(new Set(words).size).toBe(words.length);
     }
   });
 });
