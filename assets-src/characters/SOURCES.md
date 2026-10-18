@@ -32,7 +32,7 @@ Ink is recolored charcoal and the result is trimmed and scaled to 256px tall.
 
 Per-figure fixes live in `cutout-fixes.json`: brush size, invisible closing
 lines across open outlines (`seals`), and points whose region is forced
-see-through (`clear`) or solid (`fill`). They're made in the Cut-out Fixer
+see-through (`clear`) or solid (`fill`), and polygons painted solid (`paint`) for shapes the scan leaves open. They're made in the Cut-out Fixer
 page, which runs the same core in the browser; `CUTOUT_EXPORT=<file> node
 tools/process-art.mjs` writes the scan data it loads.
 
