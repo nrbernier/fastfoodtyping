@@ -16,7 +16,7 @@ function fitToViewport() {
 window.visualViewport?.addEventListener('resize', fitToViewport);
 fitToViewport();
 
-new Phaser.Game({
+const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'app',
   backgroundColor: '#f4e8cf',
@@ -26,3 +26,6 @@ new Phaser.Game({
   },
   scene: [BootScene, TitleScene, ShiftSelectScene, GameScene, ResultsScene],
 });
+
+// Dev-only handle so browser scripts can jump straight to a scene.
+if (import.meta.env.DEV) (window as unknown as { __game: Phaser.Game }).__game = game;
