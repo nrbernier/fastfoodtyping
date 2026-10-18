@@ -25,6 +25,8 @@ export class CustomerView extends Phaser.GameObjects.Container {
   private uiScale: number;
   private locked = false;
   private barY = -(SPRITE_HEIGHT + 12);
+  /** Fades a served order's ticket ahead of the customer, so it never covers a newcomer's. */
+  private ticketFade = { alpha: 1 };
 
   constructor(
     scene: Phaser.Scene,
@@ -106,7 +108,7 @@ export class CustomerView extends Phaser.GameObjects.Container {
     const w = this.scene.scale.width;
     const x = half * 2 + 8 < w ? Phaser.Math.Clamp(this.x, half + 4, w - half - 4) : w / 2;
     this.ticket.container.setPosition(x, y);
-    this.ticket.container.setAlpha(this.alpha);
+    this.ticket.container.setAlpha(this.alpha * this.ticketFade.alpha);
   };
 
   /** Where the order ticket floats, so finished words can fall from it into the pot. */
@@ -153,8 +155,18 @@ export class CustomerView extends Phaser.GameObjects.Container {
   }
 
   /** Order's up: flash the whole ticket green so the finish is unmistakable. */
+  /**
+   * Flash the finished ticket green, then tuck it under every other ticket
+   * and fade it out while the dish is still on its way: the seat is free
+   * again at once, and a new customer's ticket must show straight away.
+   */
   flashComplete() {
     this.ticket.complete();
+    this.locked = false;
+    this.ticket.container.setDepth(this.ticketDepth - 1);
+    this.bar.setVisible(false);
+    this.setDepth(this.depth - 0.5); // and step behind whoever sits down next
+    this.scene.tweens.add({ targets: this.ticketFade, alpha: 0, delay: 260, duration: 240 });
   }
 
   updatePatience(fraction: number) {
