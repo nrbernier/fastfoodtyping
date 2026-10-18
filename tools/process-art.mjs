@@ -23,12 +23,20 @@ const HEIGHT = 256;
 // pen lines still count as outline.
 const OUTLINE = 190;
 const BRUSH = 5;
-// Scans with wider breaks in a head outline.
-const BRUSH_OVERRIDES = { 's-11-112': 8, 's-29-321': 8 };
+// Scans with wider breaks in a head outline need a bigger brush; the
+// Finger-Counter's closed outlines take a small one so it reaches all the way
+// down between his fingers.
+const BRUSH_OVERRIDES = {
+  's-11-112': 8, 's-29-321': 8,
+  ...Object.fromEntries(['s-25-265', 's-25-266', 's-25-267', 's-25-268', 's-25-269', 's-25-270'].map((id) => [id, 2])),
+};
 // Outline the artist left open: invisible seam lines (scan pixel coords) that
 // block the brush but aren't drawn.
 const SEALS = {
+  's-16-165': [[[256, 256], [316, 256]]], // top of the burning bill
   's-17-178': [[[118, 46], [146, 74]]], // back of the head, hair tip to brow
+  's-20-214': [[[124, 416], [318, 386]]], // shirt front, cut off by the scan
+  's-29-314': [[[186, 38], [173, 56]], [[201, 150], [189, 203]]], // brow; nose to chin
 };
 
 /**
