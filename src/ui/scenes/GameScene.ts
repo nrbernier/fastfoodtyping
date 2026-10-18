@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import { ShiftEngine } from '../../core/shiftEngine';
+import { practiceFocus } from '../../core/typingStats';
+import { SaveStore, safeLocalStorage } from '../../persistence/storage';
 import type { ShiftConfig } from '../../core/types';
 import { attachPhysicalKeyboard, createHiddenInput, isTouchDevice, type HiddenInput } from '../../input/inputAdapter';
 import { formatMoney } from '../../core/money';
@@ -77,6 +79,8 @@ export class GameScene extends Phaser.Scene {
       maxCustomersCap: this.maxSlots,
       // A fixed seed makes the frozen demo state reproducible shot-to-shot.
       rng: this.demo ? mulberry32(this.demoSeed) : undefined,
+      // Weak keys from earlier shifts turn up in more of this shift's orders.
+      focus: this.demo ? undefined : practiceFocus(new SaveStore(safeLocalStorage()).typingTally()),
     });
     this.shiftElapsedMs = 0;
     this.receipts = [];
