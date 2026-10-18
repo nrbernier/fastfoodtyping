@@ -91,6 +91,8 @@ export class CustomerView extends Phaser.GameObjects.Container {
   /** Keep the floating ticket pinned above the customer (position + fade only;
    *  scale is left to the intro/lock/complete tweens). */
   private positionTicket = () => {
+    // A customer destroyed during this frame's update can still get this call.
+    if (!this.scene) return;
     const barTopWorld = this.y + this.barY * this.uiScale;
     // The bubble's own height clears by ticketScale() (its floored scale); the
     // bar anchor and stagger clear by uiScale (they track the shrinking sprite).
