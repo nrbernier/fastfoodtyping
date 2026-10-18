@@ -106,7 +106,6 @@ export const POSES: PoseDef[] = [
   single('s-27-297'),
   single('s-27-298'),
   single('s-29-321'),
-  single('s-29-323'),
   single('s-29-324'),
   single('s-30-337'),
   // One-off oddballs
