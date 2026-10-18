@@ -3,20 +3,28 @@
 # usage: python3 tools/draw-tub.py assets-src/characters/originals/s-17-180.png assets-src/characters/stivers/s-17-180.png
 import math, sys
 from PIL import Image, ImageDraw, ImageFilter, ImageOps
+from scipy import ndimage
+import numpy as np
 
 src, out = sys.argv[1], sys.argv[2]
 orig = Image.open(src).convert("L")
-PAD = 36                                   # widen the canvas so the rim fits
+PAD = 50                                   # widen the canvas so the rim fits
 im = ImageOps.expand(orig, border=(PAD, 0, PAD, 0), fill=255)
 W, H = im.size
 S = 4                                      # supersample for smooth ink
+# The man's silhouette: everything the open paper around him can't reach
+# from the top edge (his outline plus the cream inside it). The back of the
+# rim is hidden only there.
+paper = np.asarray(im) >= 190
+lab, _ = ndimage.label(paper)
+outside = np.isin(lab, np.unique(lab[0][lab[0] > 0]))
+body = ndimage.binary_dilation(~outside, iterations=3)
 big = im.resize((W * S, H * S), Image.LANCZOS)
 d = ImageDraw.Draw(big)
 
 cx, cy = 195 + PAD, 234                    # rim ellipse (scan pixels)
-RX, RY = 204, 66
-bot, RXB, RYB = 392, 156, 42               # bottom ellipse
-BODY = (95 + PAD, 302 + PAD)               # x-span hidden behind the man
+RX, RY = 222, 72
+bot, RXB, RYB = 396, 170, 46               # bottom ellipse
 
 
 def inside_rim(x, y):
@@ -63,12 +71,13 @@ line(ring(bot, RXB, RYB, 0, 180), 9)                       # bottom edge
 line([(S * (cx - RX), S * cy), (S * (cx - RXB), S * bot)], 9)  # sides
 line([(S * (cx + RX), S * cy), (S * (cx + RXB), S * bot)], 9)
 line(ring(cy, RX, RY, 0, 180), 9)                          # rim, front half
-# Rim, back half: hidden where the man's body stands in front of it.
+# Rim, back half: drawn all the way round, hidden where he stands in front.
 seg = []
-for a in range(180, 361, 1):
+for a10 in range(1800, 3601, 5):
+    a = a10 / 10
     x = cx + RX * math.cos(math.radians(a))
     y = cy + RY * math.sin(math.radians(a))
-    if BODY[0] < x < BODY[1]:
+    if body[min(H - 1, int(round(y))), min(W - 1, int(round(x)))]:
         if len(seg) > 1:
             line(seg, 9)
         seg = []
