@@ -16,6 +16,8 @@
 //           closing outlines the artist left open
 //   clear:  [[x, y], ...] points whose region is made see-through
 //   fill:   [[x, y], ...] points whose region is made solid
+//   paint:  [[[x, y], ...], ...] polygons whose paper is made solid, for
+//           shapes left open by the scan (planks running off the edge)
 
 export const INK = [0x26, 0x22, 0x1e];
 export const CREAM = [0xf4, 0xe8, 0xcf];
@@ -201,6 +203,24 @@ export function cutout(grey, sw, sh, fix = {}) {
   // Figure = ink + solid regions, minus scan dust.
   const figure = new Uint8Array(n);
   for (let i = 0; i < n; i++) figure[i] = solid[regions[i]];
+  for (const poly of fix.paint ?? []) {
+    const ys = poly.map((q) => q[1]);
+    const ya = Math.max(0, Math.floor(Math.min(...ys))), yb = Math.min(sh - 1, Math.ceil(Math.max(...ys)));
+    for (let y = ya; y <= yb; y++) {
+      // Scanline fill: x crossings of the polygon's edges at this row.
+      const xs = [];
+      for (let j = 0, k = poly.length - 1; j < poly.length; k = j++) {
+        const [x1, y1] = poly[k], [x2, y2] = poly[j];
+        if ((y1 > y) !== (y2 > y)) xs.push(x1 + ((y - y1) * (x2 - x1)) / (y2 - y1));
+      }
+      xs.sort((u, v) => u - v);
+      for (let m = 0; m + 1 < xs.length; m += 2) {
+        for (let x = Math.max(0, Math.ceil(xs[m])); x <= Math.min(sw - 1, Math.floor(xs[m + 1])); x++) {
+          figure[(y + pad) * w + x + pad] = 1;
+        }
+      }
+    }
+  }
   const [figLabels, sizes] = label(figure, w, h);
   for (let i = 0; i < n; i++) if (figure[i] && sizes[figLabels[i]] < SPECK) figure[i] = 0;
 
