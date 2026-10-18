@@ -24,7 +24,8 @@ const COUNTER_INSET = 22;          // how far the back edge of the counter top n
 // Tickets float above scenery (50). The order being typed jumps above the strike
 // plates (1000) too, but stays below the pause overlay (1100).
 // Dishes slide at lane depth: above the counter top, behind the condiments on its near edge.
-const DEPTH = { backdrop: 0, customer: 5, counter: 10, lane: 10.5, condiments: 11, dropped: 11.5, prep: 12, hud: 20, overlay: 100, ticket: 50, ticketActive: 1001 } as const;
+// Tip pops float above the scenery but under every ticket, so they never hide an order.
+const DEPTH = { backdrop: 0, customer: 5, counter: 10, lane: 10.5, condiments: 11, dropped: 11.5, prep: 12, hud: 20, tip: 40, overlay: 100, ticket: 50, ticketActive: 1001 } as const;
 const CUSTOMER_SINK = 36; // px the customer's feet drop behind the counter, so it occludes their legs
 
 export class GameScene extends Phaser.Scene {
@@ -433,7 +434,7 @@ export class GameScene extends Phaser.Scene {
     const label = this.add.text(x, y, `+${formatMoney(tipCents)}`, {
       fontFamily: FONTS.slab, fontSize: '34px', color: COLORS.mustard,
       stroke: COLORS.dark, strokeThickness: 4,
-    }).setOrigin(0.5).setDepth(DEPTH.overlay).setScale(0);
+    }).setOrigin(0.5).setDepth(DEPTH.tip).setScale(0);
     this.tweens.add({ targets: label, scale: 1, duration: 180, ease: 'Back.Out' });
     this.tweens.add({
       targets: label, y: y - 120, duration: 1600, ease: 'Sine.Out',
