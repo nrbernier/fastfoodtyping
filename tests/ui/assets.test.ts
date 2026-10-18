@@ -19,6 +19,10 @@ describe('character manifest', () => {
     expect(new Set(CHARACTERS.map((c) => c.key)).size).toBe(CHARACTERS.length);
   });
 
+  it('puts every pose in one of the three tiers', () => {
+    for (const p of POSES) expect([1, 2, 3], p.key).toContain(p.tier);
+  });
+
   it('has a Finger-Counter pose for every count from one to five', () => {
     const counts = POSES.filter((p) => p.fingers).map((p) => p.fingers).sort();
     expect(counts).toEqual([1, 2, 3, 4, 5]);
@@ -36,21 +40,25 @@ describe('pickPose', () => {
     }
   });
 
-  it('keeps wacky poses and the Finger-Counter out of regular orders', () => {
+  it('keeps the Finger-Counter out of ordinary orders', () => {
     const rng = mulberry32(7);
     for (let i = 0; i < 500; i++) {
-      const p = pickPose({ tier: i % 2 ? 1 : 2 }, new Set(), rng);
-      expect(p.wacky, p.key).toBe(false);
-      expect(p.fingers, p.key).toBeUndefined();
+      expect(pickPose({ tier: (1 + (i % 3)) as 1 | 2 | 3 }, new Set(), rng).fingers).toBeUndefined();
     }
   });
 
-  it('brings mostly wacky poses for weird orders', () => {
+  it('mostly matches the customer tier to the order tier, else a neighbouring one', () => {
     const rng = mulberry32(8);
-    let wacky = 0;
-    for (let i = 0; i < 1000; i++) if (pickPose({ tier: 3 }, new Set(), rng).wacky) wacky++;
-    expect(wacky).toBeGreaterThan(650);
-    expect(wacky).toBeLessThan(850);
+    for (const t of [1, 2, 3] as const) {
+      let match = 0;
+      for (let i = 0; i < 1000; i++) {
+        const p = pickPose({ tier: t }, new Set(), rng);
+        if (p.tier === t) match++;
+        else expect(Math.abs(p.tier - t), p.key).toBe(1);
+      }
+      expect(match).toBeGreaterThan(680);
+      expect(match).toBeLessThan(820);
+    }
   });
 
   it('never seats a character who is already at the counter', () => {

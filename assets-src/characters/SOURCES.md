@@ -17,7 +17,8 @@ book, so `s-25-266` is the 266th figure, on page 25.
 ## Cast
 
 `src/ui/cast.ts` is the manifest. It groups poses of the same drawn person
-(`character`), marks the wacky poses held back for weird tier-3 orders, and
+(`character`), gives each pose a tier matching the order it brings (1 regulars:
+plain menu items, 2 characters: specials, 3 wacky: weird dishes), and
 marks the Finger-Counter poses (`fingers: 1–5`) used only for his special order.
 
 ## Processing
