@@ -1,9 +1,21 @@
+import { emptyTally, mergeTally, type KeyTally } from '../core/typingStats';
+
+export interface Settings {
+  /** Capitals and punctuation orders later in the week */
+  fancyOrders: boolean;
+}
+
 export interface SaveData {
   version: 1;
   /** Highest unlocked shift index (0-based). >= SHIFTS.length unlocks Overtime. */
   unlockedShift: number;
   highScores: Record<string, number>;
+  /** Running keystroke tally across shifts (older shifts fade); absent in older saves. */
+  typing?: KeyTally;
+  settings?: Settings;
 }
+
+export const DEFAULT_SETTINGS: Settings = { fancyOrders: true };
 
 export type StorageBacking = Pick<Storage, 'getItem' | 'setItem'>;
 
@@ -73,6 +85,28 @@ export class SaveStore {
       d.unlockedShift = index;
       this.save(d);
     }
+  }
+
+  /** The running keystroke tally, used to aim the next shift at weak keys. */
+  typingTally(): KeyTally {
+    return this.load().typing ?? emptyTally();
+  }
+
+  recordTally(shift: KeyTally): void {
+    const d = this.load();
+    d.typing = mergeTally(d.typing ?? emptyTally(), shift);
+    this.save(d);
+  }
+
+  settings(): Settings {
+    return { ...DEFAULT_SETTINGS, ...this.load().settings };
+  }
+
+  updateSettings(patch: Partial<Settings>): Settings {
+    const d = this.load();
+    d.settings = { ...DEFAULT_SETTINGS, ...d.settings, ...patch };
+    this.save(d);
+    return d.settings;
   }
 
   /** Returns true if this is a new high score. */

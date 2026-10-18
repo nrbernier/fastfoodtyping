@@ -1,16 +1,19 @@
 import { Emitter } from './emitter';
 import { paramsAt } from './difficulty';
-import { OrderGenerator } from './orderGenerator';
+import { OrderGenerator, type Focus } from './orderGenerator';
 import { mulberry32, type Rng } from './rng';
 import { orderTip } from './scoring';
 import { TypingEngine } from './typingEngine';
-import type { CustomerState, GameEvents, LiveParams, ShiftConfig, ShiftResult } from './types';
+import { emptyTally, recordKey } from './typingStats';
+import type { CustomerState, GameEvents, LiveParams, OrderTiming, ShiftConfig, ShiftResult } from './types';
 
 export interface ShiftEngineOptions {
   config: ShiftConfig;
   rng?: Rng;
   /** Rendering-driven cap (e.g. 3 on narrow phones). Defaults to 4. */
   maxCustomersCap?: number;
+  /** Letters and pairs to work into more orders (see practiceFocus). */
+  focus?: Focus;
 }
 
 const FIRST_SPAWN_MS = 800;
@@ -37,12 +40,17 @@ export class ShiftEngine {
   private correctChars = 0;
   private mistakes = 0;
   private cleanStreak = 0;
+  private readonly tally = emptyTally();
+  /** When each customer's order was locked onto, for per-order speed. */
+  private lockedAt = new Map<number, number>();
+  private fastest: OrderTiming | null = null;
+  private slowest: OrderTiming | null = null;
 
   constructor(opts: ShiftEngineOptions) {
     this.config = opts.config;
     this.cap = opts.maxCustomersCap ?? 4;
     this.rng = opts.rng ?? mulberry32(Date.now() >>> 0);
-    this.generator = new OrderGenerator(this.rng);
+    this.generator = new OrderGenerator(this.rng, opts.focus);
   }
 
   get isOver(): boolean {
@@ -106,11 +114,13 @@ export class ShiftEngine {
     if (this.over) return;
     const orders = this.activeCustomers.map((c) => ({ id: c.id, normalized: c.order.normalized }));
     const res = this.typing.handleKey(char, orders);
+    this.tallyKey(res);
     switch (res.kind) {
       case 'ignored':
         return;
       case 'locked':
         this.correctChars += 1;
+        this.lockedAt.set(res.customerId, this.elapsed);
         this.events.emit('orderLocked', { customerId: res.customerId });
         return;
       case 'progress':
@@ -131,6 +141,17 @@ export class ShiftEngine {
         this.events.emit('mistake', { customerId: res.customerId });
         return;
     }
+  }
+
+  /** Tally the keystroke against the letter the locked order expected. */
+  private tallyKey(res: ReturnType<TypingEngine['handleKey']>): void {
+    if (res.kind === 'ignored' || res.customerId === null) return;
+    const text = this.customers.find((c) => c.id === res.customerId)?.order.normalized;
+    if (!text) return;
+    if (res.kind === 'mistake') recordKey(this.tally, text, this.typing.typedCount, false);
+    else if (res.kind === 'locked') recordKey(this.tally, text, 0, true);
+    else if (res.kind === 'completed') recordKey(this.tally, text, text.length - 1, true);
+    else recordKey(this.tally, text, res.typedCount - 1, true);
   }
 
   private spawn(params: LiveParams): void {
@@ -165,7 +186,19 @@ export class ShiftEngine {
     this.score += tip;
     this.cleanStreak += 1;
     this.bestCombo = Math.max(this.bestCombo, this.cleanStreak);
+    this.timeOrder(c);
     this.events.emit('orderServed', { customerId, tip, finalWordIndex });
+  }
+
+  /** Track the quickest and slowest order by typing speed, lock-on to serve. */
+  private timeOrder(c: CustomerState): void {
+    const start = this.lockedAt.get(c.id);
+    this.lockedAt.delete(c.id);
+    if (start === undefined) return;
+    const ms = Math.max(this.elapsed - start, 1);
+    const timing: OrderTiming = { text: c.order.text, ms, wpm: c.order.text.length / 5 / (ms / 60_000) };
+    if (!this.fastest || timing.wpm > this.fastest.wpm) this.fastest = timing;
+    if (!this.slowest || timing.wpm < this.slowest.wpm) this.slowest = timing;
   }
 
   private end(won: boolean): void {
@@ -182,6 +215,9 @@ export class ShiftEngine {
       wpm: minutes > 0 ? this.correctChars / 5 / minutes : 0,
       bestCombo: this.bestCombo,
       elapsedMs: this.elapsed,
+      tally: this.tally,
+      fastest: this.fastest,
+      slowest: this.slowest,
     };
     this.events.emit('shiftEnded', { result });
   }

@@ -1,3 +1,5 @@
+import type { KeyTally } from './typingStats';
+
 export interface Order {
   /** Display words, e.g. ['zebra', 'soufflé'] */
   words: string[];
@@ -62,6 +64,13 @@ export interface LiveParams {
   order: OrderParams;
 }
 
+export interface OrderTiming {
+  text: string;
+  /** Lock-on to serve */
+  ms: number;
+  wpm: number;
+}
+
 export interface ShiftResult {
   shiftId: string;
   won: boolean;
@@ -73,6 +82,10 @@ export interface ShiftResult {
   wpm: number;
   bestCombo: number;
   elapsedMs: number;
+  /** Keystrokes per expected letter, for the report and next shift's focus */
+  tally: KeyTally;
+  fastest: OrderTiming | null;
+  slowest: OrderTiming | null;
 }
 
 export interface GameEvents extends Record<string, unknown> {

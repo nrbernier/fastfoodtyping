@@ -116,4 +116,27 @@ describe('ShiftEngine', () => {
     expect(engine.isOver).toBe(true);
     expect(() => engine.handleKey('a')).not.toThrow();
   });
+
+  it('tallies keystrokes per expected letter and times served orders', () => {
+    const engine = makeEngine({ durationMs: 2000, spawnIntervalMs: { start: 9000, end: 9000 } });
+    let result: ShiftResult | null = null;
+    engine.events.on('shiftEnded', (e) => (result = e.result));
+    step(engine, 1000);
+    const order = engine.activeCustomers[0].order;
+    const text = order.normalized;
+    engine.handleKey(text[0]);
+    engine.handleKey(text[1] === 'q' ? 'z' : 'q'); // miss the second letter
+    for (const ch of text.slice(1)) {
+      engine.handleKey(ch);
+      engine.update(50);
+    }
+    step(engine, 2000);
+    expect(result!.tally.misses).toEqual({ [text[1]]: 1 });
+    expect(result!.tally.pairMisses).toEqual({ [text.slice(0, 2)]: 1 });
+    const hits = Object.values(result!.tally.hits).reduce((a, b) => a + b, 0);
+    expect(hits).toBe(text.replace(/ /g, '').length);
+    expect(result!.fastest?.text).toBe(order.text);
+    expect(result!.fastest!.ms).toBeGreaterThan(0);
+    expect(result!.slowest).toEqual(result!.fastest);
+  });
 });
