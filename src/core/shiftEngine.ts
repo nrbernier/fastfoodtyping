@@ -3,7 +3,7 @@ import { orderPatienceMs, paramsAt, type Pace } from './difficulty';
 import { OrderGenerator, type Focus } from './orderGenerator';
 import type { Vocabulary } from './lang';
 import { mulberry32, type Rng } from './rng';
-import { orderTip } from './scoring';
+import { CUSTOMER_BONUS, orderTip, RUSH_BONUS_PER_ORDER } from './scoring';
 import { TypingEngine } from './typingEngine';
 import { emptyTally, recordKey } from './typingStats';
 import type { CustomerState, GameEvents, LiveParams, OrderTiming, ShiftConfig, ShiftResult } from './types';
@@ -25,6 +25,14 @@ export interface ShiftEngineOptions {
 
 const FIRST_SPAWN_MS = 800;
 const MAX_STRIKES = 3;
+/** Orders served in one drink rush. */
+const RUSH_SIZE = 6;
+/** Gap between rush arrivals while a seat is free. */
+const RUSH_SPAWN_MS = 350;
+/** How long a diner takes over a course before ordering the next. */
+const EATING_MS = 2500;
+/** A fickle customer changes their mind once this share of the order is typed. */
+const FICKLE_AT = 0.5;
 
 export class ShiftEngine {
   readonly events = new Emitter<GameEvents>();
@@ -54,6 +62,11 @@ export class ShiftEngine {
   private lockedAt = new Map<number, number>();
   private fastest: OrderTiming | null = null;
   private slowest: OrderTiming | null = null;
+  /** Rush orders still to arrive, and how the current rush is going. */
+  private rushLeft = 0;
+  private rushIndex = 0;
+  private rushLost = false;
+  private rushSize = 0;
 
   constructor(opts: ShiftEngineOptions) {
     this.config = opts.config;
@@ -77,6 +90,11 @@ export class ShiftEngine {
     return this.customers.find((c) => c.id === customerId)?.order;
   }
 
+  /** Customers with an order to type (a diner between courses has none). */
+  private get typableCustomers(): CustomerState[] {
+    return this.activeCustomers.filter((c) => !c.eatingMs);
+  }
+
   get lockedCustomerId(): number | null {
     return this.typing.locked;
   }
@@ -93,16 +111,25 @@ export class ShiftEngine {
     // (durationMs = Infinity) never reaches time-up and ends only on strikes.
     const timeUp = Number.isFinite(this.config.durationMs) && this.elapsed >= this.config.durationMs;
 
-    if (
-      !timeUp &&
-      this.elapsed >= this.spawnAt &&
-      this.activeCustomers.length < Math.min(params.maxCustomers, this.cap)
-    ) {
+    const rushAt = this.config.specials?.rushAtMs ?? [];
+    if (!timeUp && this.rushIndex < rushAt.length && this.elapsed >= rushAt[this.rushIndex]) {
+      this.rushIndex += 1;
+      if (this.rushLeft === 0) this.startRush();
+    }
+
+    // During a rush every free seat fills fast; otherwise the shift's pacing.
+    const seats = this.rushLeft > 0 ? this.cap : Math.min(params.maxCustomers, this.cap);
+    if (!timeUp && this.elapsed >= this.spawnAt && this.activeCustomers.length < seats) {
       this.spawn(params);
-      this.spawnAt = this.elapsed + params.spawnIntervalMs;
+      this.spawnAt = this.elapsed + (this.rushLeft > 0 ? RUSH_SPAWN_MS : params.spawnIntervalMs);
     }
 
     for (const c of this.activeCustomers) {
+      if (c.eatingMs) {
+        c.eatingMs = Math.max(0, c.eatingMs - dtMs);
+        if (c.eatingMs === 0) this.orderNextCourse(c, params);
+        continue;
+      }
       c.patienceMs -= dtMs;
       if (c.patienceMs <= 0) {
         c.patienceMs = 0;
@@ -110,8 +137,10 @@ export class ShiftEngine {
         this.typing.release(c.id);
         this.strikes += 1;
         this.cleanStreak = 0;
+        if (c.special === 'rush') this.rushLost = true;
         this.events.emit('customerLeft', { customerId: c.id, strikes: this.strikes });
         if (this.strikes >= MAX_STRIKES) return this.end(false);
+        this.checkRushOver();
       }
     }
 
@@ -134,7 +163,7 @@ export class ShiftEngine {
   /** Switch to a customer's order, e.g. by tapping them; what was typed on it is kept. */
   selectCustomer(customerId: number): void {
     if (this.over) return;
-    const c = this.activeCustomers.find((x) => x.id === customerId);
+    const c = this.typableCustomers.find((x) => x.id === customerId);
     const previous = this.typing.locked;
     if (!c || previous === customerId) return;
     if (previous !== null) this.events.emit('orderReleased', { customerId: previous });
@@ -153,7 +182,7 @@ export class ShiftEngine {
 
   handleKey(char: string): void {
     if (this.over) return;
-    const orders = this.activeCustomers.map((c) => ({ id: c.id, normalized: c.order.normalized, exact: c.order.exact }));
+    const orders = this.typableCustomers.map((c) => ({ id: c.id, normalized: c.order.normalized, exact: c.order.exact }));
     const res = this.typing.handleKey(char, orders);
     this.tallyKey(res);
     switch (res.kind) {
@@ -167,10 +196,12 @@ export class ShiftEngine {
       case 'progress':
         this.correctChars += 1;
         this.events.emit('orderProgress', { customerId: res.customerId, typedCount: res.typedCount });
+        this.maybeChangeMind(res.customerId);
         return;
       case 'wordCompleted':
         this.correctChars += 1;
         this.events.emit('wordCompleted', { customerId: res.customerId, wordIndex: res.wordIndex });
+        this.maybeChangeMind(res.customerId);
         return;
       case 'completed':
         this.correctChars += 1;
@@ -195,10 +226,67 @@ export class ShiftEngine {
     else recordKey(this.tally, text, res.typedCount - 1, true);
   }
 
+  private usedFirstLetters(): Set<string> {
+    return new Set(this.typableCustomers.map((c) => c.order.normalized[0].toLowerCase()));
+  }
+
+  private startRush(): void {
+    this.rushLeft = RUSH_SIZE;
+    this.rushSize = RUSH_SIZE;
+    this.rushLost = false;
+    this.spawnAt = this.elapsed;
+    this.events.emit('rushStarted', { count: RUSH_SIZE });
+  }
+
+  /** When the last rush customer is gone, pay the bonus if none walked out. */
+  private checkRushOver(): void {
+    if (this.rushSize === 0 || this.rushLeft > 0) return;
+    if (this.activeCustomers.some((c) => c.special === 'rush')) return;
+    const cleared = !this.rushLost;
+    const bonus = cleared ? RUSH_BONUS_PER_ORDER * this.rushSize : 0;
+    this.score += bonus;
+    this.rushSize = 0;
+    this.events.emit('rushEnded', { cleared, bonus });
+  }
+
+  /** A fickle customer, half-typed, changes their order: typing starts over but patience refills. */
+  private maybeChangeMind(customerId: number): void {
+    const c = this.typableCustomers.find((x) => x.id === customerId);
+    if (!c || c.special !== 'fickle' || c.changed) return;
+    if (this.typing.progressOf(c.id) < Math.ceil(c.order.normalized.length * FICKLE_AT)) return;
+    const others = new Set(
+      this.typableCustomers.filter((x) => x.id !== c.id).map((x) => x.order.normalized[0].toLowerCase()),
+    );
+    const params = paramsAt(this.config, this.elapsed, this.pace);
+    let order = c.order;
+    for (let i = 0; i < 10 && order.text === c.order.text; i++) {
+      order = this.generator.next({ ...params.order, houseChance: 0, countChance: 0 }, others);
+    }
+    c.order = order;
+    c.changed = true;
+    this.typing.resetProgress(c.id);
+    c.patienceTotalMs = orderPatienceMs(params.patienceMs, order.normalized.length, this.pace);
+    c.patienceMs = c.patienceTotalMs;
+    this.events.emit('orderChanged', { customer: c });
+  }
+
+  /** A diner done with a course orders coffee or dessert. */
+  private orderNextCourse(c: CustomerState, params: LiveParams): void {
+    const vocab = this.generator.vocabulary;
+    c.order = this.generator.nextFrom(vocab.followUps, 1, this.usedFirstLetters());
+    c.patienceTotalMs = orderPatienceMs(params.patienceMs, c.order.normalized.length, this.pace);
+    c.patienceMs = c.patienceTotalMs;
+    this.events.emit('nextCourse', { customer: c });
+  }
+
   private spawn(params: LiveParams): void {
-    const usedLetters = new Set(this.activeCustomers.map((c) => c.order.normalized[0].toLowerCase()));
+    const usedLetters = this.usedFirstLetters();
     const orderParams = this.houseOrders ? params.order : { ...params.order, houseChance: 0 };
-    const order = this.generator.next(orderParams, usedLetters);
+    const rush = this.rushLeft > 0;
+    const order = rush
+      ? this.generator.nextFrom(this.generator.vocabulary.rushDrinks, 1, usedLetters)
+      : this.generator.next(orderParams, usedLetters);
+    if (rush) this.rushLeft -= 1;
     // Pick a random free slot (not always the leftmost) so a lone customer
     // isn't always parked at the same seat.
     const usedSlots = new Set(this.activeCustomers.map((c) => c.slot));
@@ -216,6 +304,17 @@ export class ShiftEngine {
       patienceMs: patience,
       resolved: false,
     };
+    const specials = this.config.specials;
+    if (rush) customer.special = 'rush';
+    else if (specials && !order.fingers && !order.exact) {
+      const r = this.rng();
+      if (r < specials.fickle) {
+        customer.special = 'fickle';
+      } else if (r < specials.fickle + specials.courses) {
+        customer.special = 'diner';
+        customer.courses = 1 + (this.rng() < 0.3 ? 1 : 0);
+      }
+    }
     this.customers.push(customer);
     this.events.emit('customerArrived', { customer });
   }
@@ -223,14 +322,25 @@ export class ShiftEngine {
   private serve(customerId: number, finalWordIndex: number): void {
     const c = this.customers.find((x) => x.id === customerId);
     if (!c || c.resolved) return;
-    c.resolved = true;
     this.served += 1;
-    const tip = orderTip(c.order, c.patienceMs / c.patienceTotalMs, this.cleanStreak);
+    // A changed mind pays extra, as does every course after the first.
+    const later = c.special === 'diner' && c.eatingMs === 0;
+    const bonus = c.special === 'fickle' && c.changed ? CUSTOMER_BONUS.fickle : later ? CUSTOMER_BONUS.course : 1;
+    const patienceLeft = c.patienceMs / c.patienceTotalMs;
+    const tip = orderTip(c.order, patienceLeft, this.cleanStreak, bonus);
     this.score += tip;
     this.cleanStreak += 1;
     this.bestCombo = Math.max(this.bestCombo, this.cleanStreak);
     this.timeOrder(c);
-    this.events.emit('orderServed', { customerId, tip, finalWordIndex, patienceLeft: c.patienceMs / c.patienceTotalMs });
+    const stays = c.special === 'diner' && (c.courses ?? 0) > 0;
+    if (stays) {
+      c.courses! -= 1;
+      c.eatingMs = EATING_MS;
+    } else {
+      c.resolved = true;
+    }
+    this.events.emit('orderServed', { customerId, tip, finalWordIndex, patienceLeft, stays });
+    if (c.special === 'rush') this.checkRushOver();
   }
 
   /** Track the quickest and slowest order by typing speed, lock-on to serve. */

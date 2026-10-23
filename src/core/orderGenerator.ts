@@ -67,6 +67,23 @@ export class OrderGenerator {
     return order;
   }
 
+  /** A plain order from a fixed pool (follow-up courses, rush drinks), with a free first letter. */
+  nextFrom(pool: readonly string[], tier: 1 | 2, excludeFirstLetters: ReadonlySet<string>): Order {
+    let words: string[] = [];
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      words = this.draw(pool).split(' ');
+      if (!excludeFirstLetters.has(normalizeText(words[0])[0])) break;
+    }
+    const text = words.join(' ');
+    const order: Order = { words, text, normalized: normalizeText(text), tier };
+    if (this.vocab.lang !== 'en') order.lang = this.vocab.lang;
+    return order;
+  }
+
+  get vocabulary(): Vocabulary {
+    return this.vocab;
+  }
+
   private candidate(params: OrderParams): Draft {
     const draw = (pool: readonly string[]) => this.draw(pool);
     if (this.rng() < (params.houseChance ?? 0)) {

@@ -159,4 +159,72 @@ describe('ShiftEngine', () => {
     typeOrder(engine, a.order.normalized.slice(2));
     expect(a.resolved).toBe(true);
   });
+
+  it('a fickle customer changes their order halfway, refilling patience and paying extra', () => {
+    const engine = makeEngine({ specials: { fickle: 1, courses: 0, rushAtMs: [] }, spawnIntervalMs: { start: 9000, end: 9000 } });
+    const changed: string[] = [];
+    engine.events.on('orderChanged', (e) => changed.push(e.customer.order.text));
+    step(engine, 1000);
+    const c = engine.activeCustomers[0];
+    const first = c.order.normalized;
+    step(engine, 1000); // lose some patience
+    for (const ch of first.slice(0, Math.ceil(first.length / 2))) engine.handleKey(ch);
+    expect(changed).toHaveLength(1);
+    expect(c.order.normalized).not.toBe(first);
+    expect(c.patienceMs).toBe(c.patienceTotalMs);
+    expect(engine.progressOf(c.id)).toBe(0);
+    let tip = 0;
+    engine.events.on('orderServed', (e) => (tip = e.tip));
+    typeOrder(engine, c.order.normalized); // no second change
+    expect(changed).toHaveLength(1);
+    expect(c.resolved).toBe(true);
+    expect(tip).toBeGreaterThan(0);
+  });
+
+  it('a diner stays for another course after a short break', () => {
+    const engine = makeEngine({ specials: { fickle: 0, courses: 1, rushAtMs: [] }, spawnIntervalMs: { start: 9000, end: 9000 } });
+    const served: Array<boolean | undefined> = [];
+    const courses: string[] = [];
+    engine.events.on('orderServed', (e) => served.push(e.stays));
+    engine.events.on('nextCourse', (e) => courses.push(e.customer.order.text));
+    step(engine, 1000);
+    const c = engine.activeCustomers[0];
+    typeOrder(engine, c.order.normalized);
+    expect(served).toEqual([true]);
+    expect(c.resolved).toBe(false);
+    // While eating there is nothing to type and patience holds.
+    const patience = c.patienceMs;
+    engine.handleKey(c.order.normalized[0]);
+    expect(engine.lockedCustomerId).toBeNull();
+    step(engine, 1000);
+    expect(c.patienceMs).toBe(patience);
+    step(engine, 2000);
+    expect(courses).toHaveLength(1);
+    typeOrder(engine, c.order.normalized);
+    expect(served.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('a drink rush fills every seat with short drinks and pays a bonus when cleared', () => {
+    const engine = makeEngine({
+      durationMs: 60_000, patienceMs: { start: 60_000, end: 60_000 }, spawnIntervalMs: { start: 30_000, end: 30_000 },
+      specials: { fickle: 0, courses: 0, rushAtMs: [2000] },
+    });
+    let ended: { cleared: boolean; bonus: number } | null = null;
+    let started = 0;
+    engine.events.on('rushStarted', (e) => (started = e.count));
+    engine.events.on('rushEnded', (e) => (ended = e));
+    step(engine, 1000);
+    for (const c of [...engine.activeCustomers]) typeOrder(engine, c.order.normalized);
+    step(engine, 3000);
+    expect(started).toBeGreaterThan(0);
+    expect(engine.activeCustomers.length).toBe(4); // every seat
+    expect(engine.activeCustomers.every((c) => c.special === 'rush')).toBe(true);
+    const before = engine.score;
+    for (let i = 0; i < 20 && !ended; i++) {
+      for (const c of [...engine.activeCustomers]) typeOrder(engine, c.order.normalized);
+      step(engine, 500);
+    }
+    expect(ended).toEqual({ cleared: true, bonus: expect.any(Number) });
+    expect(engine.score - before).toBeGreaterThan(ended!.bonus);
+  });
 });

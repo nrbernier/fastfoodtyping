@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import type { CustomerState } from '../core/types';
+import type { CustomerState, Order } from '../core/types';
 import { PLACEHOLDER_KEY } from './assets';
 import { HEADS, type PoseDef } from './cast';
 import { COLORS, FONTS, makeLiveTicket, makeStarburst, type LiveTicket } from './theme';
@@ -17,8 +17,16 @@ export class CustomerView extends Phaser.GameObjects.Container {
   private ticket: LiveTicket;
   private bar: Phaser.GameObjects.Graphics;
   private sprite: Phaser.GameObjects.Image;
-  private ticketHalf1: number; // ticket half-height measured at scale 1
-  private ticketHalfW1: number; // and half-width
+  private ticketHalf1 = 0; // ticket half-height measured at scale 1
+  private ticketHalfW1 = 0; // and half-width
+  private tapHandler?: () => void;
+  /** Depth the scene gave this customer (served ones step behind newcomers). */
+  private baseDepth = 0;
+
+  setDepth(value: number): this {
+    if (this.baseDepth === 0) this.baseDepth = value;
+    return super.setDepth(value);
+  }
   private ticketStaggerPx: number;
   private ticketDepth: number;
   private activeTicketDepth: number;
@@ -59,21 +67,9 @@ export class CustomerView extends Phaser.GameObjects.Container {
     // The order ticket is NOT a child of this container: it lives at scene level
     // on a high depth so the order you're typing is never hidden behind the
     // counter, props, or HUD. It trails the customer via positionTicket().
-    // A Finger-Counter special hides its count word: read it off his hand.
-    const { order } = customer;
-    const hidden = order.fingers ? order.words[0].length : 0;
-    this.ticket = makeLiveTicket(scene, x, y, order.text, undefined, hidden);
-    // ticketHalf1 is the ticket's half-height at scale 1. positionTicket scales
-    // it by ticketScale() (which floors at MIN_TICKET_SCALE) so the bubble stays
-    // legible even when the customer sprite shrinks; the per-seat stagger still
-    // scales with uiScale (it's a layout offset, not a bubble dimension) and lifts
-    // alternating seats so long neighbouring tickets never collide horizontally.
-    const bounds = this.ticket.container.getBounds();
-    this.ticketHalf1 = bounds.height / 2;
-    this.ticketHalfW1 = bounds.width / 2;
     this.ticketStaggerPx = ticketStaggerPx;
-    this.ticket.setBaseScale(this.ticketScale());
-    this.ticket.container.setDepth(ticketDepth).setScale(0);
+    this.ticket = this.buildTicket(customer.order);
+    this.ticket.container.setScale(0);
 
     this.bar = scene.add.graphics();
     this.add([this.bar, this.sprite]);
@@ -140,13 +136,76 @@ export class CustomerView extends Phaser.GameObjects.Container {
     return Math.max(this.uiScale, MIN_TICKET_SCALE);
   }
 
+  /**
+   * A fresh ticket for `order`. A Finger-Counter special hides its count
+   * word: read it off his hand. ticketHalf1 is the ticket's half-height at
+   * scale 1; positionTicket scales it by ticketScale() (which floors at
+   * MIN_TICKET_SCALE) so the bubble stays legible even when the customer
+   * sprite shrinks, while the per-seat stagger lifts alternating seats so long
+   * neighbouring tickets don't collide.
+   */
+  private buildTicket(order: Order): LiveTicket {
+    const hidden = order.fingers ? order.words[0].length : 0;
+    const ticket = makeLiveTicket(this.scene, this.x, this.y, order.text, undefined, hidden);
+    this.ticketHalf1 = ticket.height / 2;
+    this.ticketHalfW1 = ticket.width / 2;
+    ticket.setBaseScale(this.ticketScale());
+    ticket.container.setDepth(this.ticketDepth);
+    if (this.tapHandler) this.makeTicketTappable(ticket);
+    return ticket;
+  }
+
+  private makeTicketTappable(ticket: LiveTicket) {
+    const { width: w, height: h } = ticket;
+    ticket.container
+      .setInteractive(new Phaser.Geom.Rectangle(-w / 2, -h / 2, w, h), Phaser.Geom.Rectangle.Contains)
+      .on('pointerdown', () => this.tapHandler?.());
+  }
+
   /** Tapping the customer or their ticket calls `onTap` (switch to / let go of this order). */
   onTap(onTap: () => void) {
-    const { width: w, height: h } = this.ticket;
-    this.sprite.setInteractive({ useHandCursor: true }).on('pointerdown', onTap);
-    this.ticket.container
-      .setInteractive(new Phaser.Geom.Rectangle(-w / 2, -h / 2, w, h), Phaser.Geom.Rectangle.Contains)
-      .on('pointerdown', onTap);
+    this.tapHandler = onTap;
+    this.sprite.setInteractive({ useHandCursor: true }).on('pointerdown', () => this.tapHandler?.());
+    this.makeTicketTappable(this.ticket);
+  }
+
+  /**
+   * Swap in a new order: a fickle customer changing their mind, or a diner
+   * ordering the next course. The old ticket shrinks away, a new one pops up,
+   * and the customer says `announce`.
+   */
+  replaceOrder(order: Order, announce?: string) {
+    const old = this.ticket.container;
+    this.scene.tweens.add({ targets: old, scale: 0, duration: 150, onComplete: () => old.destroy() });
+    this.ticket = this.buildTicket(order);
+    this.ticketFade.alpha = 1;
+    this.bar.setVisible(true);
+    this.setDepth(this.baseDepth);
+    this.locked = false;
+    this.ticket.container.setScale(0);
+    this.positionTicket();
+    this.scene.tweens.add({ targets: this.ticket.container, scale: this.ticketScale(), duration: 220, ease: 'Back.Out' });
+    if (announce) this.say(announce);
+  }
+
+  /** Munch on the course just served while the next order waits. */
+  startEating(phrase: string) {
+    this.bar.setVisible(false);
+    this.say(phrase, 1400);
+    this.scene.tweens.add({ targets: this.sprite, angle: 3, duration: 180, yoyo: true, repeat: 5 });
+  }
+
+  /** A speech bubble beside the head. */
+  say(phrase: string, hold = 900, color: string = COLORS.dark) {
+    const scene = this.scene;
+    if (!scene) return;
+    const s = this.uiScale;
+    const bubble = scene.add.text(this.x + 34 * s, this.y + (this.headY - 4) * s, phrase, {
+      fontFamily: FONTS.slab, fontSize: '16px', color, backgroundColor: COLORS.cream, padding: { x: 7, y: 4 },
+    }).setOrigin(0, 1).setDepth(45).setScale(0).setAngle(-4);
+    bubble.setX(Math.min(bubble.x, scene.scale.width - bubble.width * s - 4));
+    scene.tweens.add({ targets: bubble, scale: s, duration: 160, ease: 'Back.Out' });
+    scene.tweens.add({ targets: bubble, alpha: 0, delay: hold, duration: 200, onComplete: () => bubble.destroy() });
   }
 
   get isLocked(): boolean {
@@ -181,7 +240,7 @@ export class CustomerView extends Phaser.GameObjects.Container {
     this.locked = false;
     this.ticket.container.setDepth(this.ticketDepth - 1);
     this.bar.setVisible(false);
-    this.setDepth(this.depth - 0.5); // and step behind whoever sits down next
+    this.setDepth(this.baseDepth - 0.5); // and step behind whoever sits down next
     this.scene.tweens.add({ targets: this.ticketFade, alpha: 0, delay: 260, duration: 240 });
   }
 
@@ -235,14 +294,8 @@ export class CustomerView extends Phaser.GameObjects.Container {
         });
       }
     }
-    const bubble = scene.add.text(headX + 34 * s, headY - 4 * s, phrase, {
-      fontFamily: FONTS.slab, fontSize: '16px', color: mood === 'grumpy' ? COLORS.red : COLORS.dark,
-      backgroundColor: COLORS.cream, padding: { x: 7, y: 4 },
-    }).setOrigin(0, 1).setDepth(45).setScale(0).setAngle(-4);
-    bubble.setX(Math.min(bubble.x, scene.scale.width - bubble.width * s - 4));
-    scene.tweens.add({ targets: bubble, scale: s, duration: 160, ease: 'Back.Out' });
     const hold = mood === 'delighted' ? 900 : 650;
-    scene.tweens.add({ targets: bubble, alpha: 0, delay: hold, duration: 200, onComplete: () => bubble.destroy() });
+    this.say(phrase, hold, mood === 'grumpy' ? COLORS.red : COLORS.dark);
     scene.time.delayedCall(hold, done);
   }
 

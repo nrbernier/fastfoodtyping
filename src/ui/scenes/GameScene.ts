@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { ShiftEngine } from '../../core/shiftEngine';
 import { practiceFocus } from '../../core/typingStats';
 import { VOCABULARIES, type Lang } from '../../core/lang';
-import { reaction } from '../reactions';
+import { line, reaction } from '../reactions';
 import { TipJar } from '../TipJar';
 import { SaveStore, safeLocalStorage } from '../../persistence/storage';
 import type { ShiftConfig } from '../../core/types';
@@ -279,7 +279,7 @@ export class GameScene extends Phaser.Scene {
       this.dropWord(customerId, wordIndex);
     });
 
-    e.on('orderServed', ({ customerId, tip, finalWordIndex, patienceLeft }) => {
+    e.on('orderServed', ({ customerId, tip, finalWordIndex, patienceLeft, stays }) => {
       this.dropWord(customerId, finalWordIndex);
       const view = this.views.get(customerId);
       view?.flashComplete();
@@ -294,15 +294,50 @@ export class GameScene extends Phaser.Scene {
           // Served in the green: delighted; yellow: pleased; red: about time.
           const mood = patienceLeft >= 0.5 ? 'delighted' : patienceLeft >= 0.2 ? 'pleased' : 'grumpy';
           if (mood === 'delighted') play('cheer');
-          const leave = () => view?.serve(() => this.views.delete(customerId));
-          if (view) view.cheer(mood, reaction(mood, this.lang), leave);
-          else leave();
+          // A diner stays on and munches until the next course; everyone else leaves.
+          const after = stays
+            ? () => view?.startEating(line('eating', this.lang))
+            : () => view?.serve(() => this.views.delete(customerId));
+          if (view) view.cheer(mood, reaction(mood, this.lang), after);
+          else after();
         });
       });
       this.setRegisterScore(this.engine.score);
       this.impaleReceipt(tx, this.counterY());
       this.popTip(tx, ty - 60, tip);
       this.tipJar.addTip(tx, ty - 60, tip, this.engine.score);
+    });
+
+    e.on('orderChanged', ({ customer }) => {
+      play('swap');
+      this.orderWords.set(customer.id, customer.order.words);
+      const view = this.views.get(customer.id);
+      view?.replaceOrder(customer.order, line('changed', this.lang));
+      if (this.engine.lockedCustomerId === customer.id) {
+        view?.setLocked(true);
+        view?.updateTyping(0);
+      }
+    });
+
+    e.on('nextCourse', ({ customer }) => {
+      play('coin');
+      this.orderWords.set(customer.id, customer.order.words);
+      this.views.get(customer.id)?.replaceOrder(customer.order, line('course', this.lang));
+    });
+
+    e.on('rushStarted', () => {
+      play('rush');
+      this.banner(line('rush', this.lang), COLORS.mustard);
+    });
+
+    e.on('rushEnded', ({ cleared, bonus }) => {
+      if (cleared) {
+        play('cheer');
+        this.banner(`${line('rushCleared', this.lang)} +${formatMoney(bonus)}`, COLORS.cream);
+        this.setRegisterScore(this.engine.score);
+      } else {
+        this.banner(line('rushMissed', this.lang), COLORS.cream);
+      }
     });
 
     e.on('customerLeft', ({ customerId, strikes }) => {
@@ -493,6 +528,18 @@ export class GameScene extends Phaser.Scene {
     for (const r of this.receipts) {
       r.view.setPosition(this.receiptRestX(r.jx), this.receiptRestY(r.index)).setDepth(DEPTH.counter + 3);
     }
+  }
+
+  /** A big slab headline across the wall that pops in and fades. */
+  private banner(text: string, color: string) {
+    const { width, height } = this.scale;
+    const label = this.add.text(width / 2, height * 0.3, text, {
+      fontFamily: FONTS.slab, fontSize: '34px', color, stroke: COLORS.dark, strokeThickness: 6, align: 'center',
+      wordWrap: { width: width * 0.9 / Math.max(this.uiScale, 0.6) },
+    }).setOrigin(0.5).setDepth(DEPTH.overlay).setScale(0).setAngle(-5);
+    const s = Math.max(this.uiScale, 0.6);
+    this.tweens.add({ targets: label, scale: s, duration: 260, ease: 'Back.Out' });
+    this.tweens.add({ targets: label, alpha: 0, y: label.y - 30, delay: 1400, duration: 400, onComplete: () => label.destroy() });
   }
 
   /** Big, lingering tip pop above the served customer. */

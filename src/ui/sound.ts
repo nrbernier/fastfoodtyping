@@ -2,7 +2,7 @@
 // load: typewriter clacks, a buzz for a wrong key, a plop and sizzle when a
 // word lands in the pot, the service bell, the register, a walkout grumble.
 
-type Cue = 'key' | 'mistake' | 'plop' | 'bell' | 'register' | 'grumble' | 'lid' | 'coin' | 'rush' | 'cheer';
+type Cue = 'key' | 'mistake' | 'plop' | 'bell' | 'register' | 'grumble' | 'lid' | 'coin' | 'rush' | 'cheer' | 'swap';
 
 let ctx: AudioContext | null = null;
 let master: GainNode | null = null;
@@ -114,6 +114,10 @@ export function play(cue: Cue): void {
       break;
     case 'rush':
       [523, 659, 784, 1047].forEach((f, i) => tone('triangle', f, t + i * 0.09, 0.25, 0.14));
+      break;
+    case 'swap':
+      tone('triangle', 880, t, 0.1, 0.1, 660);
+      tone('triangle', 660, t + 0.1, 0.16, 0.1, 440);
       break;
     case 'cheer':
       [784, 988, 1175].forEach((f, i) => tone('sine', f, t + i * 0.06, 0.3, 0.1));
