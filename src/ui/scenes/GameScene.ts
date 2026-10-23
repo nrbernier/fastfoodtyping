@@ -1,7 +1,9 @@
 import Phaser from 'phaser';
 import { ShiftEngine } from '../../core/shiftEngine';
 import { practiceFocus } from '../../core/typingStats';
-import { VOCABULARIES } from '../../core/lang';
+import { VOCABULARIES, type Lang } from '../../core/lang';
+import { reaction } from '../reactions';
+import { TipJar } from '../TipJar';
 import { SaveStore, safeLocalStorage } from '../../persistence/storage';
 import type { ShiftConfig } from '../../core/types';
 import { attachPhysicalKeyboard, createHiddenInput, isTouchDevice, type HiddenInput } from '../../input/inputAdapter';
@@ -37,6 +39,8 @@ export class GameScene extends Phaser.Scene {
   private orderWords = new Map<number, string[]>();
   private hud!: Hud;
   private kitchen!: Kitchen;
+  private tipJar!: TipJar;
+  private lang: Lang = 'en';
   private pauseOverlay!: Phaser.GameObjects.Container;
   private gamePaused = false;
   private maxSlots = 4;
@@ -81,6 +85,7 @@ export class GameScene extends Phaser.Scene {
     this.maxSlots = width < 700 ? 3 : 4;
     const store = new SaveStore(safeLocalStorage());
     setMuted(this.demo || !store.settings().sound);
+    this.lang = this.demo ? 'en' : store.settings().lang;
     this.engine = new ShiftEngine({
       config: this.config,
       maxCustomersCap: this.maxSlots,
@@ -91,7 +96,7 @@ export class GameScene extends Phaser.Scene {
       houseOrders: store.settings().fancyOrders,
       // The design preview keeps the original full-speed pacing.
       pace: this.demo ? 'rush' : store.settings().pace,
-      vocabulary: VOCABULARIES[this.demo ? 'en' : store.settings().lang],
+      vocabulary: VOCABULARIES[this.lang],
     });
     this.shiftElapsedMs = 0;
     this.receipts = [];
@@ -105,6 +110,7 @@ export class GameScene extends Phaser.Scene {
       },
     });
     this.kitchen = new Kitchen(this, this.kitchenLayout(), { pot: DEPTH.prep, lane: DEPTH.lane, dropped: DEPTH.dropped });
+    this.tipJar = new TipJar(this, ...this.tipJarPlace(), DEPTH.prep + 2);
     this.hud = new Hud(this);
     this.hud.layout(width, height);
     if (!this.demo) {
@@ -174,6 +180,7 @@ export class GameScene extends Phaser.Scene {
       this.lastH = h;
       this.layoutDiner(w, h); // recomputes this.uiScale
       this.kitchen.reposition(this.kitchenLayout());
+      this.tipJar.reposition(...this.tipJarPlace());
       for (const c of this.engine.activeCustomers) {
         const view = this.views.get(c.id);
         view?.setUiScale(this.uiScale);
@@ -272,7 +279,7 @@ export class GameScene extends Phaser.Scene {
       this.dropWord(customerId, wordIndex);
     });
 
-    e.on('orderServed', ({ customerId, tip, finalWordIndex }) => {
+    e.on('orderServed', ({ customerId, tip, finalWordIndex, patienceLeft }) => {
       this.dropWord(customerId, finalWordIndex);
       const view = this.views.get(customerId);
       view?.flashComplete();
@@ -284,12 +291,18 @@ export class GameScene extends Phaser.Scene {
         if (!order) return view?.serve(() => this.views.delete(customerId));
         this.kitchen.serve(order, tx, () => {
           play('bell');
-          this.time.delayedCall(250, () => view?.serve(() => this.views.delete(customerId)));
+          // Served in the green: delighted; yellow: pleased; red: about time.
+          const mood = patienceLeft >= 0.5 ? 'delighted' : patienceLeft >= 0.2 ? 'pleased' : 'grumpy';
+          if (mood === 'delighted') play('cheer');
+          const leave = () => view?.serve(() => this.views.delete(customerId));
+          if (view) view.cheer(mood, reaction(mood, this.lang), leave);
+          else leave();
         });
       });
       this.setRegisterScore(this.engine.score);
       this.impaleReceipt(tx, this.counterY());
       this.popTip(tx, ty - 60, tip);
+      this.tipJar.addTip(tx, ty - 60, tip, this.engine.score);
     });
 
     e.on('customerLeft', ({ customerId, strikes }) => {
@@ -323,6 +336,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   // ---- layout & scenery ----
+
+  private registerX(): number {
+    return this.scale.width * 0.82;
+  }
+
+  /** The tip jar stands on top of the cash register. */
+  private tipJarPlace(): [number, number, number] {
+    return [this.registerX() - 8 * this.uiScale, this.stoveY() - 44 * this.uiScale * 1.1, this.uiScale];
+  }
 
   private slotX(slot: number): number {
     const w = this.scale.width;
@@ -462,7 +484,7 @@ export class GameScene extends Phaser.Scene {
     keep(makeReceiptSpike(this, this.spikeX, this.spikeY).setDepth(DEPTH.prep + 1).setScale(ui));
 
     // vintage cash register right of the pot; the running score lives in its window
-    const register = makeCashRegister(this, width * 0.82, this.stoveY(), formatMoney(this.score));
+    const register = makeCashRegister(this, this.registerX(), this.stoveY(), formatMoney(this.score));
     register.container.setDepth(DEPTH.prep + 1).setScale(ui * 1.1);
     this.registerScore = register.scoreText;
     keep(register.container);

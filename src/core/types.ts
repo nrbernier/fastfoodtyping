@@ -105,7 +105,8 @@ export interface GameEvents extends Record<string, unknown> {
   orderReleased: { customerId: number };
   orderProgress: { customerId: number; typedCount: number };
   wordCompleted: { customerId: number; wordIndex: number };
-  orderServed: { customerId: number; tip: number; finalWordIndex: number };
+  /** `patienceLeft` is the share of patience the customer still had (0..1). */
+  orderServed: { customerId: number; tip: number; finalWordIndex: number; patienceLeft: number };
   customerLeft: { customerId: number; strikes: number };
   mistake: { customerId: number | null };
   shiftEnded: { result: ShiftResult };

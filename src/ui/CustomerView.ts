@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type { CustomerState } from '../core/types';
 import { PLACEHOLDER_KEY } from './assets';
 import { HEADS, type PoseDef } from './cast';
-import { COLORS, makeLiveTicket, makeStarburst, type LiveTicket } from './theme';
+import { COLORS, FONTS, makeLiveTicket, makeStarburst, type LiveTicket } from './theme';
 import { fitPose, SPRITE_HEIGHT } from './headFit';
 
 const TICKET_GAP = 30;
@@ -25,6 +25,8 @@ export class CustomerView extends Phaser.GameObjects.Container {
   private uiScale: number;
   private locked = false;
   private barY = -(SPRITE_HEIGHT + 12);
+  /** Local y of the top of the head, for speech bubbles and hearts. */
+  private headY = -SPRITE_HEIGHT;
   /** Fades a served order's ticket ahead of the customer, so it never covers a newcomer's. */
   private ticketFade = { alpha: 1 };
 
@@ -52,6 +54,7 @@ export class CustomerView extends Phaser.GameObjects.Container {
     this.sprite.setScale(fit.scale).setY(fit.bottom);
     // Patience bar just above the figure, but never higher than for a full-height pose.
     this.barY = Math.max(fit.top, -SPRITE_HEIGHT) - 12;
+    this.headY = fit.bottom - (this.sprite.height - (HEADS[pose.key]?.[0] ?? 0)) * fit.scale;
 
     // The order ticket is NOT a child of this container: it lives at scene level
     // on a high depth so the order you're typing is never hidden behind the
@@ -199,6 +202,48 @@ export class CustomerView extends Phaser.GameObjects.Container {
     this.scene.tweens.killTweensOf(this.ticket.container);
     this.ticket.container.destroy();
     super.preDestroy();
+  }
+
+  /**
+   * React to the dish: delighted customers hop twice with hearts and stars,
+   * pleased ones nod with a hop, late ones grumble. A speech bubble says it.
+   * `done` fires when the reaction is over.
+   */
+  cheer(mood: 'delighted' | 'pleased' | 'grumpy', phrase: string, done: () => void) {
+    if (!this.scene) return done();
+    const scene = this.scene;
+    const s = this.uiScale;
+    const headX = this.x;
+    const headY = this.y + this.headY * s;
+    const hops = mood === 'delighted' ? 2 : mood === 'pleased' ? 1 : 0;
+    scene.tweens.killTweensOf(this.sprite);
+    if (hops) {
+      scene.tweens.add({ targets: this.sprite, y: this.sprite.y - 16, duration: 140, yoyo: true, repeat: hops - 1, ease: 'Quad.Out' });
+    } else {
+      scene.tweens.add({ targets: this.sprite, angle: 4, duration: 60, yoyo: true, repeat: 3 });
+    }
+    if (mood === 'delighted') {
+      for (let i = 0; i < 6; i++) {
+        const glyph = scene.add.text(headX, headY + 20 * s, i % 2 ? '★' : '♥', {
+          fontFamily: FONTS.sans, fontSize: '20px', color: i % 2 ? COLORS.mustard : COLORS.red,
+          stroke: COLORS.dark, strokeThickness: 2,
+        }).setOrigin(0.5).setDepth(45).setScale(s);
+        const angle = -Math.PI / 2 + (i - 2.5) * 0.45;
+        scene.tweens.add({
+          targets: glyph, x: headX + Math.cos(angle) * 70 * s, y: headY + 20 * s + Math.sin(angle) * 60 * s,
+          alpha: 0, scale: s * 1.4, duration: 800, ease: 'Quad.Out', onComplete: () => glyph.destroy(),
+        });
+      }
+    }
+    const bubble = scene.add.text(headX + 34 * s, headY - 4 * s, phrase, {
+      fontFamily: FONTS.slab, fontSize: '16px', color: mood === 'grumpy' ? COLORS.red : COLORS.dark,
+      backgroundColor: COLORS.cream, padding: { x: 7, y: 4 },
+    }).setOrigin(0, 1).setDepth(45).setScale(0).setAngle(-4);
+    bubble.setX(Math.min(bubble.x, scene.scale.width - bubble.width * s - 4));
+    scene.tweens.add({ targets: bubble, scale: s, duration: 160, ease: 'Back.Out' });
+    const hold = mood === 'delighted' ? 900 : 650;
+    scene.tweens.add({ targets: bubble, alpha: 0, delay: hold, duration: 200, onComplete: () => bubble.destroy() });
+    scene.time.delayedCall(hold, done);
   }
 
   serve(onDone: () => void) {
