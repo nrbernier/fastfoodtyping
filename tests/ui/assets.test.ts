@@ -76,4 +76,11 @@ describe('pickPose', () => {
       expect(pickPose({ tier: (1 + (i % 2)) as 1 | 2 }, new Set(), rng).tier).toBeLessThan(3);
     }
   });
+
+  it('sends only regulars when the shift allows no higher tier', () => {
+    const rng = mulberry32(11);
+    for (let i = 0; i < 1000; i++) {
+      expect(pickPose({ tier: (1 + (i % 3)) as 1 | 2 | 3 }, new Set(), rng, 1).tier).toBe(1);
+    }
+  });
 });

@@ -16,6 +16,8 @@ export const SHIFTS: readonly ShiftConfig[] = [
     countChance: { start: 0, end: 0 },
     houseChance: { start: 0, end: 0 },
     specials: { fickle: 0, courses: 0.1, rushAtMs: [] },
+    // Monday is regulars only, whatever they order.
+    maxCustomerTier: 1,
   },
   {
     id: 'tuesday',
