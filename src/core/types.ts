@@ -36,7 +36,7 @@ export interface CustomerState {
    * typed; `diner` stays on for coffee or dessert; `rush` came in with a
    * drink rush.
    */
-  special?: 'fickle' | 'diner' | 'rush';
+  special?: 'fickle' | 'diner' | 'rush' | 'boss';
   /** Fickle: already changed their mind once */
   changed?: boolean;
   /** Diner: follow-up orders still to come */
@@ -77,6 +77,30 @@ export interface ShiftConfig {
   houseChance: { start: number; end: number };
   /** Special customers and rushes; none when absent */
   specials?: ShiftSpecials;
+  /** A boss night: one big customer at the centre seat instead of a normal shift */
+  boss?: BossDef;
+}
+
+export type BossMove = 'seconds' | 'hurry' | 'scramble' | 'sendBack';
+
+export interface BossDef {
+  /** Which pose(s) the boss is drawn with, cycling between dishes */
+  poses: readonly string[];
+  /** Dishes to serve to win (his appetite) */
+  dishes: number;
+  /** Starting temper: how long he waits before storming out */
+  patienceMs: number;
+  /** Patience won back with each dish served (capped at the start value) */
+  calmMs: number;
+  /** Patience lost on each wrong key */
+  mistakeMs: number;
+  /** Tricks he plays, one every `moveEveryMs` */
+  moves: readonly BossMove[];
+  moveEveryMs: number;
+  /** Order tiers for his first and last dish (orders grow harder as he eats) */
+  menu: { start: TierWeights; end: TierWeights; wordsPerOrder: { start: number; end: number }; houseChance: number };
+  /** Bonus paid when he is beaten */
+  bonus: number;
 }
 
 export interface ShiftSpecials {
@@ -141,4 +165,8 @@ export interface GameEvents extends Record<string, unknown> {
   rushStarted: { count: number };
   /** The rush is over; `bonus` (cents) is paid when nobody walked out */
   rushEnded: { cleared: boolean; bonus: number };
+  /** Boss night: the boss plays a trick (see BossMove) */
+  bossMove: { kind: BossMove; customerId: number };
+  /** Boss night: dishes still to serve, out of the (possibly grown) total */
+  bossAppetite: { left: number; total: number };
 }

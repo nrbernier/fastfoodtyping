@@ -48,6 +48,8 @@ export class CustomerView extends Phaser.GameObjects.Container {
     activeTicketDepth = ticketDepth + 1,
     uiScale = 1,
     ticketStaggerPx = 0,
+    /** Draw bigger than everyone else (the boss) */
+    sizeBoost = 1,
   ) {
     super(scene, x, y);
     this.customerId = customer.id;
@@ -58,7 +60,8 @@ export class CustomerView extends Phaser.GameObjects.Container {
 
     const key = scene.textures.exists(pose.key) ? pose.key : PLACEHOLDER_KEY;
     this.sprite = scene.add.image(0, 0, key).setOrigin(0.5, 1);
-    const fit = fitPose(key === pose.key ? HEADS[pose.key] : undefined, this.sprite.height);
+    const base = fitPose(key === pose.key ? HEADS[pose.key] : undefined, this.sprite.height);
+    const fit = { scale: base.scale * sizeBoost, bottom: base.bottom * sizeBoost, top: base.top * sizeBoost };
     this.sprite.setScale(fit.scale).setY(fit.bottom);
     // Patience bar just above the figure, but never higher than for a full-height pose.
     this.barY = Math.max(fit.top, -SPRITE_HEIGHT) - 12;
@@ -186,6 +189,11 @@ export class CustomerView extends Phaser.GameObjects.Container {
     this.positionTicket();
     this.scene.tweens.add({ targets: this.ticket.container, scale: this.ticketScale(), duration: 220, ease: 'Back.Out' });
     if (announce) this.say(announce);
+  }
+
+  /** Jumble the ticket's remaining letters for a moment. */
+  scrambleTicket(ms: number) {
+    this.ticket.scramble(ms);
   }
 
   /** Munch on the course just served while the next order waits. */

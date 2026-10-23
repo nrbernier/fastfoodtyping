@@ -1,11 +1,12 @@
 import Phaser from 'phaser';
 import { PACE_ORDER, PACES, type Pace } from '../../core/difficulty';
 import { LANG_LABELS, type Lang } from '../../core/lang';
-import { SHIFTS } from '../../core/shifts';
+import { BOSSES, bossUnlocked, SHIFTS, WEEK } from '../../core/shifts';
 import { formatMoney } from '../../core/money';
 import { SaveStore, safeLocalStorage } from '../../persistence/storage';
 import { COLORS, FONTS, makeButton } from '../theme';
 import { applyPaperGrain } from '../texture';
+import { UNLOCK_ALL } from '../preview';
 
 export class ShiftSelectScene extends Phaser.Scene {
   constructor() {
@@ -39,36 +40,33 @@ export class ShiftSelectScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    SHIFTS.forEach((shift, i) => {
-      const unlocked = i <= save.unlockedShift;
-      const y = height * 0.25 + i * Math.min(70, height * 0.1);
-      makeButton(this, width / 2, y, shift.name, () => this.scene.start('game', { config: shift }), unlocked);
+    // The week: five shifts with a boss night after Wednesday and Friday.
+    const rowH = Math.min(62, height * 0.074);
+    WEEK.forEach((shift, i) => {
+      const day = SHIFTS.indexOf(shift);
+      const boss = BOSSES.find((b) => b.id === shift.id);
+      const unlocked = UNLOCK_ALL || (boss ? bossUnlocked(boss, save.unlockedShift) : day <= save.unlockedShift);
+      const y = height * 0.25 + i * rowH;
+      const start = () => this.scene.start('game', { config: shift });
+      const best = save.highScores[shift.id];
+      const label = best ? `${shift.name}  ·  ${formatMoney(best)}` : shift.name;
+      const btn = makeButton(this, width / 2, y, label, start, unlocked, boss
+        ? { fontSize: 16, fill: COLORS.mustardHex, color: COLORS.dark }
+        : { fontSize: 18 });
+      if (btn.width > boardW - 16) btn.setScale((boardW - 16) / btn.width);
       if (!unlocked) {
         this.add
-          .text(width / 2 + 80, y - 14, "86'd", {
-            fontFamily: FONTS.slab,
-            fontSize: '18px',
-            color: COLORS.red,
-          })
+          .text(width / 2 + boardW * 0.36, y - 12, "86'd", { fontFamily: FONTS.slab, fontSize: '16px', color: COLORS.red })
           .setOrigin(0.5)
           .setAngle(-14);
       }
-      const best = save.highScores[shift.id];
-      if (best) {
-        this.add
-          .text(width / 2, y + 26, `best ......... ${formatMoney(best)}`, {
-            fontFamily: FONTS.mono,
-            fontSize: '14px',
-            color: COLORS.cream,
-          })
-          .setOrigin(0.5, 0);
-      }
     });
+    const settingsY = height * 0.25 + WEEK.length * rowH;
 
     // Pace: tap to cycle how patient customers are and how fast they arrive.
     const paceLabel = (p: Pace) => `Pace: < ${PACES[p].label} >`;
     const paceText = this.add
-      .text(width / 2, height * 0.79, paceLabel(store.settings().pace), {
+      .text(width / 2, settingsY + 30, paceLabel(store.settings().pace), {
         fontFamily: FONTS.mono,
         fontSize: '17px',
         color: COLORS.cream,
@@ -83,7 +81,7 @@ export class ShiftSelectScene extends Phaser.Scene {
     // Language of the orders: tap to switch.
     const langLabel = (l: Lang) => `Orders in: < ${LANG_LABELS[l]} >`;
     const langText = this.add
-      .text(width / 2, height * 0.755, langLabel(store.settings().lang), {
+      .text(width / 2, settingsY, langLabel(store.settings().lang), {
         fontFamily: FONTS.mono,
         fontSize: '17px',
         color: COLORS.cream,
@@ -98,7 +96,7 @@ export class ShiftSelectScene extends Phaser.Scene {
     // House orders (capitals and punctuation, from Wednesday on) can be switched off.
     const toggleLabel = (on: boolean) => `[${on ? 'x' : ' '}] Caps & punctuation orders (Wed on)`;
     const toggle = this.add
-      .text(width / 2, height * 0.835, toggleLabel(store.settings().fancyOrders), {
+      .text(width / 2, settingsY + 60, toggleLabel(store.settings().fancyOrders), {
         fontFamily: FONTS.mono,
         fontSize: '15px',
         color: COLORS.mustard,

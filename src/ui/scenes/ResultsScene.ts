@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { OVERTIME, SHIFTS } from '../../core/shifts';
+import { nextInWeek, SHIFTS } from '../../core/shifts';
 import type { ShiftConfig, ShiftResult } from '../../core/types';
 import { SaveStore, safeLocalStorage } from '../../persistence/storage';
 import { COLORS, FONTS, makeButton } from '../theme';
@@ -36,15 +36,12 @@ export class ResultsScene extends Phaser.Scene {
     const buttonsY = height - buttonGap * 1.9;
     this.buildReceipt(width / 2, 14, buttonsY - buttonGap * 0.6 - 14, r, tip, newHigh);
 
-    const isLastShift = shiftIndex === SHIFTS.length - 1;
-    if (r.won && shiftIndex >= 0 && !isLastShift) {
-      makeButton(this, width * 0.5, buttonsY, 'NEXT SHIFT', () =>
-        this.scene.start('game', { config: SHIFTS[shiftIndex + 1] }),
-      );
-    } else if (r.won && isLastShift) {
-      makeButton(this, width * 0.5, buttonsY, 'OVERTIME!', () =>
-        this.scene.start('game', { config: OVERTIME }),
-      );
+    // The week runs Monday to Friday with a boss night after Wednesday and
+    // Friday, then Overtime.
+    const next = r.won ? nextInWeek(r.shiftId) : undefined;
+    if (next) {
+      const label = next.boss ? 'BOSS NIGHT!' : next.id === 'overtime' ? 'OVERTIME!' : 'NEXT SHIFT';
+      makeButton(this, width * 0.5, buttonsY, label, () => this.scene.start('game', { config: next }));
     } else {
       makeButton(this, width * 0.5, buttonsY, 'TRY AGAIN', () =>
         this.scene.start('game', { config: this.config }),
@@ -108,7 +105,7 @@ export class ResultsScene extends Phaser.Scene {
     rule(y + lineH / 2);
     y += lineH;
     const verdict = [
-      r.won ? 'SHIFT SURVIVED!' : "YOU'RE FIRED",
+      this.config.boss ? (r.won ? 'BOSS BEATEN!' : 'HE STORMED OUT!') : r.won ? 'SHIFT SURVIVED!' : "YOU'RE FIRED",
       ...(r.won ? [] : ['(see you tomorrow.)']),
       ...(newHigh ? ['★ NEW BEST! ★'] : []),
     ];

@@ -4,6 +4,7 @@ import { BIOS } from '../bios';
 import { POSES, type PoseDef } from '../cast';
 import { COLORS, FONTS, makeButton } from '../theme';
 import { applyPaperGrain } from '../texture';
+import { UNLOCK_ALL } from '../preview';
 
 interface Entry {
   character: string;
@@ -37,7 +38,10 @@ export class ScrapbookScene extends Phaser.Scene {
     const met = new SaveStore(safeLocalStorage()).met();
     const byCharacter = new Map<string, PoseDef[]>();
     for (const p of POSES) byCharacter.set(p.character, [...(byCharacter.get(p.character) ?? []), p]);
-    this.entries = [...byCharacter].map(([character, poses]) => ({ character, poses, met: met[character] ?? 0 }));
+    // Previews show everyone, as if each had been served once.
+    this.entries = [...byCharacter].map(([character, poses]) => ({
+      character, poses, met: met[character] ?? (UNLOCK_ALL ? 1 : 0),
+    }));
     // Met customers first, most-served at the top; the rest keep cast order.
     this.entries.sort((a, b) => Number(b.met > 0) - Number(a.met > 0) || b.met - a.met);
     const known = this.entries.filter((e) => e.met > 0).length;
