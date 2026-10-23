@@ -13,6 +13,7 @@ export const SHIFTS: readonly ShiftConfig[] = [
     wordsPerOrder: { start: 1, end: 1 },
     countChance: { start: 0, end: 0 },
     houseChance: { start: 0, end: 0 },
+    specials: { fickle: 0, courses: 0.1, rushAtMs: [] },
   },
   {
     id: 'tuesday',
@@ -26,6 +27,7 @@ export const SHIFTS: readonly ShiftConfig[] = [
     wordsPerOrder: { start: 1, end: 1.5 },
     countChance: { start: 0.04, end: 0.08 },
     houseChance: { start: 0, end: 0 },
+    specials: { fickle: 0.06, courses: 0.12, rushAtMs: [50_000] },
   },
   {
     id: 'wednesday',
@@ -39,6 +41,7 @@ export const SHIFTS: readonly ShiftConfig[] = [
     wordsPerOrder: { start: 1.5, end: 2 },
     countChance: { start: 0.08, end: 0.08 },
     houseChance: { start: 0.04, end: 0.08 },
+    specials: { fickle: 0.08, courses: 0.12, rushAtMs: [45_000] },
   },
   {
     id: 'thursday',
@@ -52,6 +55,7 @@ export const SHIFTS: readonly ShiftConfig[] = [
     wordsPerOrder: { start: 2, end: 2.5 },
     countChance: { start: 0.08, end: 0.08 },
     houseChance: { start: 0.08, end: 0.12 },
+    specials: { fickle: 0.1, courses: 0.1, rushAtMs: [40_000, 90_000] },
   },
   {
     id: 'friday',
@@ -65,6 +69,7 @@ export const SHIFTS: readonly ShiftConfig[] = [
     wordsPerOrder: { start: 2, end: 3 },
     countChance: { start: 0.06, end: 0.06 },
     houseChance: { start: 0.1, end: 0.15 },
+    specials: { fickle: 0.1, courses: 0.1, rushAtMs: [40_000, 100_000] },
   },
 ];
 
@@ -84,4 +89,6 @@ export const OVERTIME: ShiftConfig = {
   wordsPerOrder: { start: 1, end: 3 },
   countChance: { start: 0.03, end: 0.08 },
   houseChance: { start: 0, end: 0.12 },
+  // a drink rush every minute, for as long as Overtime lasts
+  specials: { fickle: 0.08, courses: 0.1, rushAtMs: Array.from({ length: 30 }, (_, i) => (i + 1) * 60_000) },
 };

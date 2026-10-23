@@ -31,6 +31,18 @@ export interface CustomerState {
   patienceMs: number;
   /** True once served or stormed out */
   resolved: boolean;
+  /**
+   * A special customer: `fickle` changes their mind halfway through being
+   * typed; `diner` stays on for coffee or dessert; `rush` came in with a
+   * drink rush.
+   */
+  special?: 'fickle' | 'diner' | 'rush';
+  /** Fickle: already changed their mind once */
+  changed?: boolean;
+  /** Diner: follow-up orders still to come */
+  courses?: number;
+  /** Diner: enjoying the last course; no order to type and no patience lost meanwhile */
+  eatingMs?: number;
 }
 
 export interface TierWeights {
@@ -63,6 +75,17 @@ export interface ShiftConfig {
   wordsPerOrder: { start: number; end: number };
   countChance: { start: number; end: number };
   houseChance: { start: number; end: number };
+  /** Special customers and rushes; none when absent */
+  specials?: ShiftSpecials;
+}
+
+export interface ShiftSpecials {
+  /** Chance a customer changes their mind halfway through */
+  fickle: number;
+  /** Chance a customer stays on for coffee or dessert */
+  courses: number;
+  /** Shift times (ms) at which a drink rush starts */
+  rushAtMs: readonly number[];
 }
 
 export interface LiveParams {
@@ -106,8 +129,16 @@ export interface GameEvents extends Record<string, unknown> {
   orderProgress: { customerId: number; typedCount: number };
   wordCompleted: { customerId: number; wordIndex: number };
   /** `patienceLeft` is the share of patience the customer still had (0..1). */
-  orderServed: { customerId: number; tip: number; finalWordIndex: number; patienceLeft: number };
+  orderServed: { customerId: number; tip: number; finalWordIndex: number; patienceLeft: number; stays?: boolean };
   customerLeft: { customerId: number; strikes: number };
   mistake: { customerId: number | null };
   shiftEnded: { result: ShiftResult };
+  /** A fickle customer changed their order; typing on it starts over */
+  orderChanged: { customer: CustomerState };
+  /** A diner finished eating and orders the next course */
+  nextCourse: { customer: CustomerState };
+  /** A drink rush: `count` short orders, filling every free seat */
+  rushStarted: { count: number };
+  /** The rush is over; `bonus` (cents) is paid when nobody walked out */
+  rushEnded: { cleared: boolean; bonus: number };
 }

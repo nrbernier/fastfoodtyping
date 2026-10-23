@@ -247,4 +247,14 @@ export const FRENCH: Vocabulary = {
     const dish = fingers === 1 ? one : many;
     return { words: [count, dish], fresh: [dish] };
   },
+  followUps: [
+    'café', 'thé', 'chocolat', 'tarte', 'glace', 'crêpe', 'gaufre', 'flan', 'mousse', 'sorbet', 'éclair', 'expresso',
+    'tisane', 'crème brûlée', 'île flottante', 'café crème', 'coupe glacée', 'tarte tatin', 'riz au lait',
+    'madeleine', 'cookie', 'brownie', 'macaron', 'yaourt', 'fromage blanc', 'mousse au chocolat', 'café liégeois',
+  ],
+  rushDrinks: [
+    'café', 'thé', 'cola', 'soda', 'jus', 'sirop', 'limonade', 'lait', 'tisane', 'expresso', 'smoothie', 'milkshake',
+    'orangeade', 'diabolo', 'kéfir', 'grenadine', 'noisette', 'allongé', 'eau', 'menthe', 'coca', 'infusion',
+    'jus de pomme', 'café crème', 'thé glacé', 'grand crème',
+  ],
 };

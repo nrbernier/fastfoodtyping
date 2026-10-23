@@ -23,8 +23,14 @@ export function specialMultiplier(order: Order): number {
   return order.exact ? 1.25 : 1;
 }
 
-export function orderTip(order: Order, patienceFractionLeft: number, cleanStreak: number): number {
+/** Tip multiplier for special customers: a changed mind or a later course pays extra. */
+export const CUSTOMER_BONUS = { fickle: 1.5, course: 1.5 } as const;
+
+export function orderTip(order: Order, patienceFractionLeft: number, cleanStreak: number, bonus = 1): number {
   return Math.round(
-    baseTip(order) * patienceMultiplier(patienceFractionLeft) * comboMultiplier(cleanStreak) * specialMultiplier(order),
+    baseTip(order) * patienceMultiplier(patienceFractionLeft) * comboMultiplier(cleanStreak) * specialMultiplier(order) * bonus,
   );
 }
+
+/** Paid when every customer of a drink rush is served. */
+export const RUSH_BONUS_PER_ORDER = 15;

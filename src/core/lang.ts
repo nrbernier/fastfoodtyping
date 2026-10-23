@@ -31,6 +31,10 @@ export interface Vocabulary {
   maxCount: number;
   /** A Finger-Counter special: the count word first, then the dish */
   counted(fingers: number, draw: Draw): Dish;
+  /** What a diner who stays on orders next: coffee, tea, dessert */
+  followUps: readonly string[];
+  /** Short drinks for a rush, with plenty of different first letters */
+  rushDrinks: readonly string[];
 }
 
 const COUNTABLE_NAMES = COUNTABLE.map(([one]) => one);
@@ -54,6 +58,17 @@ export const ENGLISH: Vocabulary = {
     const dish = fingers === 1 ? one : many;
     return { words: [COUNT_WORDS[fingers - 1], dish], fresh: [dish] };
   },
+  followUps: [
+    'coffee', 'pie', 'sundae', 'tea', 'cocoa', 'malt', 'donut', 'cake', 'jello', 'float', 'cobbler', 'cookie',
+    'brownie', 'eclair', 'fudge', 'sherbet', 'custard', 'pudding', 'mocha', 'latte', 'espresso', 'cheesecake',
+    'apple pie', 'cherry pie', 'pecan pie', 'hot cocoa', 'black coffee', 'banana split', 'rice pudding',
+    'key lime pie', 'iced tea', 'vanilla shake',
+  ],
+  rushDrinks: [
+    'coffee', 'tea', 'cola', 'soda', 'malt', 'juice', 'milk', 'cocoa', 'latte', 'mocha', 'shake', 'float',
+    'punch', 'cider', 'java', 'joe', 'seltzer', 'tonic', 'frappe', 'lemonade', 'eggnog', 'kefir', 'water',
+    'refill', 'iced tea', 'root beer', 'decaf', 'espresso', 'ginger ale', 'orange juice',
+  ],
 };
 
 export const VOCABULARIES: Readonly<Record<Lang, Vocabulary>> = { en: ENGLISH, fr: FRENCH };
