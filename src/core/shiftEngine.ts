@@ -230,7 +230,7 @@ export class ShiftEngine {
     this.cleanStreak += 1;
     this.bestCombo = Math.max(this.bestCombo, this.cleanStreak);
     this.timeOrder(c);
-    this.events.emit('orderServed', { customerId, tip, finalWordIndex });
+    this.events.emit('orderServed', { customerId, tip, finalWordIndex, patienceLeft: c.patienceMs / c.patienceTotalMs });
   }
 
   /** Track the quickest and slowest order by typing speed, lock-on to serve. */
