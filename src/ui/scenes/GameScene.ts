@@ -40,6 +40,7 @@ export class GameScene extends Phaser.Scene {
   private hud!: Hud;
   private kitchen!: Kitchen;
   private tipJar!: TipJar;
+  private store!: SaveStore;
   private lang: Lang = 'en';
   private pauseOverlay!: Phaser.GameObjects.Container;
   private gamePaused = false;
@@ -84,6 +85,7 @@ export class GameScene extends Phaser.Scene {
     this.cleanupFns = [];
     this.maxSlots = width < 700 ? 3 : 4;
     const store = new SaveStore(safeLocalStorage());
+    this.store = store;
     setMuted(this.demo || !store.settings().sound);
     this.lang = this.demo ? 'en' : store.settings().lang;
     this.engine = new ShiftEngine({
@@ -282,6 +284,7 @@ export class GameScene extends Phaser.Scene {
     e.on('orderServed', ({ customerId, tip, finalWordIndex, patienceLeft, stays }) => {
       this.dropWord(customerId, finalWordIndex);
       const view = this.views.get(customerId);
+      if (view && !this.demo) this.store.recordMet(view.character);
       view?.flashComplete();
       const tx = view?.x ?? this.scale.width / 2;
       const ty = view?.y ?? this.scale.height * 0.4;

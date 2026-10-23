@@ -21,6 +21,8 @@ export interface SaveData {
   /** Running keystroke tally across shifts (older shifts fade); absent in older saves. */
   typing?: KeyTally;
   settings?: Settings;
+  /** Times each character has been served, for the scrapbook */
+  met?: Record<string, number>;
 }
 
 export const DEFAULT_SETTINGS: Settings = { fancyOrders: true, pace: 'steady', lang: 'en', sound: true };
@@ -115,6 +117,17 @@ export class SaveStore {
     d.settings = { ...DEFAULT_SETTINGS, ...d.settings, ...patch };
     this.save(d);
     return d.settings;
+  }
+
+  /** Count a served customer toward the scrapbook. */
+  recordMet(character: string): void {
+    const d = this.load();
+    d.met = { ...d.met, [character]: (d.met?.[character] ?? 0) + 1 };
+    this.save(d);
+  }
+
+  met(): Record<string, number> {
+    return this.load().met ?? {};
   }
 
   /** Returns true if this is a new high score. */

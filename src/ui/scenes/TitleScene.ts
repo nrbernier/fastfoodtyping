@@ -73,22 +73,24 @@ export class TitleScene extends Phaser.Scene {
 
     makeStarburst(this, width * 0.85, height * 0.12, 48, '24 HR\nSERVICE');
 
-    makeButton(this, width / 2, height * 0.52, 'START SHIFT', () =>
+    makeButton(this, width / 2, height * 0.45, 'START SHIFT', () =>
       this.scene.start('shiftselect'),
     );
     makeButton(
       this,
       width / 2,
-      height * 0.65,
+      height * 0.555,
       overtimeUnlocked ? 'OVERTIME' : 'OVERTIME (LOCKED)',
       () => this.scene.start('game', { config: OVERTIME }),
       overtimeUnlocked,
     );
 
+    makeButton(this, width / 2, height * 0.665, 'SCRAPBOOK', () => this.scene.start('scrapbook'));
+
     const best = save.highScores[OVERTIME.id];
     if (best) {
       this.add
-        .text(width / 2, height * 0.76, `Overtime best: ${formatMoney(best)}`, {
+        .text(width / 2, height * 0.607, `Overtime best: ${formatMoney(best)}`, {
           fontFamily: FONTS.mono,
           fontSize: '17px',
           color: COLORS.dark,
