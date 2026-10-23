@@ -28,6 +28,9 @@ export class ScrapbookScene extends Phaser.Scene {
   private cardH = 0;
   private cols = 3;
   private detail?: Phaser.GameObjects.Container;
+  private gridBottom = 0;
+  private pressed?: Entry;
+  private velocity = 0;
 
   constructor() {
     super('scrapbook');
@@ -59,6 +62,7 @@ export class ScrapbookScene extends Phaser.Scene {
     const left = (width - usable) / 2;
     this.grid = this.add.container(left, TOP);
     this.entries.forEach((e, i) => this.grid.add(this.card(e, (i % this.cols) * (this.cardW + GAP), Math.floor(i / this.cols) * (this.cardH + GAP))));
+    this.gridBottom = height - 78;
 
     const bottom = height - 78;
     const rows = Math.ceil(this.entries.length / this.cols);
@@ -85,37 +89,58 @@ export class ScrapbookScene extends Phaser.Scene {
       fixedWidth: w - 6,
     }).setOrigin(0.5);
     if (name.width > w - 6) name.setScale((w - 6) / name.width);
+    // The card itself is the hit area, so a tap always opens what is under the
+    // finger. It only counts if the press started on this card with no page
+    // open, so the finger lifting after closing a page never reopens one.
+    paper.setInteractive({ useHandCursor: true })
+      .on('pointerdown', (p: Phaser.Input.Pointer) => {
+        this.pressed = !this.detail && p.y >= TOP && p.y <= this.gridBottom ? e : undefined;
+      })
+      .on('pointerup', (p: Phaser.Input.Pointer) => {
+        const moved = Math.hypot(p.x - p.downX, p.y - p.downY);
+        const tapped = this.pressed === e && moved < 10 && !this.detail;
+        this.pressed = undefined;
+        if (tapped) this.showDetail(e);
+      });
     return this.add.container(x, y, [paper, img, tape, name]).setAngle((x * 7 + y * 3) % 5 - 2);
   }
 
-  /** Drag (or wheel) to scroll; a press that hardly moves is a tap on a card. */
-  private wireScrolling(left: number, bottom: number) {
-    let downY = 0;
-    let downX = 0;
-    let startScroll = 0;
+  /** Drag (or wheel) to scroll, with a little glide after a flick. */
+  private wireScrolling(_left: number, bottom: number) {
+    let lastY = 0;
+    let lastT = 0;
     let dragging = false;
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
       if (this.detail || p.y < TOP || p.y > bottom) return;
       dragging = true;
-      downX = p.x;
-      downY = p.y;
-      startScroll = this.scrollY;
+      this.velocity = 0;
+      lastY = p.y;
+      lastT = p.time;
     });
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
-      if (dragging && p.isDown) this.scrollTo(startScroll - (p.y - downY));
+      if (!dragging || !p.isDown) return;
+      const dy = p.y - lastY;
+      const dt = Math.max(1, p.time - lastT);
+      this.scrollTo(this.scrollY - dy);
+      this.velocity = (-dy / dt) * 16; // px per frame
+      lastY = p.y;
+      lastT = p.time;
     });
-    this.input.on('pointerup', (p: Phaser.Input.Pointer) => {
-      if (!dragging) return;
+    const release = () => {
       dragging = false;
-      if (Math.abs(p.y - downY) > 8 || Math.abs(p.x - downX) > 8) return;
-      const col = Math.floor((p.x - left) / (this.cardW + GAP));
-      const row = Math.floor((p.y - TOP + this.scrollY) / (this.cardH + GAP));
-      const entry = col >= 0 && col < this.cols ? this.entries[row * this.cols + col] : undefined;
-      if (entry) this.showDetail(entry);
-    });
+    };
+    this.input.on('pointerup', release);
+    this.input.on('pointerupoutside', release);
+    this.input.on('gameout', release);
     this.input.on('wheel', (_p: unknown, _o: unknown, _dx: number, dy: number) => {
       if (!this.detail) this.scrollTo(this.scrollY + dy);
     });
+  }
+
+  update() {
+    if (Math.abs(this.velocity) < 0.3 || this.detail) return;
+    this.scrollTo(this.scrollY + this.velocity);
+    this.velocity *= 0.92;
   }
 
   private scrollTo(y: number) {
@@ -166,11 +191,17 @@ export class ScrapbookScene extends Phaser.Scene {
       show();
       parts.push(counter, arrow(-w / 2 + 34, '‹', -1), arrow(w / 2 - 34, '›', 1));
     }
-    const pageH = footY + (e.poses.length > 1 ? 64 : 34);
+    const closeY = footY + (e.poses.length > 1 ? 70 : 40);
+    const closeBtn = makeButton(this, 0, closeY, 'CLOSE', () => dismiss(), true, { fontSize: 18 });
+    parts.push(closeBtn);
+    const pageH = closeY + 40;
     page.setSize(w, pageH);
     page.setDisplaySize(w, pageH);
-    const close = this.add.text(w / 2 - 16, 10, '✕', { fontFamily: FONTS.sans, fontSize: '22px', color: COLORS.dark })
-      .setOrigin(1, 0).setInteractive({ useHandCursor: true });
+    const close = this.add.text(w / 2 - 8, 4, '✕', {
+      fontFamily: FONTS.sans, fontSize: '26px', color: COLORS.dark, padding: { x: 14, y: 8 },
+    }).setOrigin(1, 0).setInteractive({ useHandCursor: true });
+    // Taps on the page itself must not fall through to the shade and close it.
+    page.setInteractive();
     parts.push(close);
     const top = Math.max(12, (height - pageH) / 2);
     this.detail = this.add.container(width / 2, top, parts).setScale(0.9).setAlpha(0);

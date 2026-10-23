@@ -310,6 +310,9 @@ export class GameScene extends Phaser.Scene {
         if (!order) return view?.serve(() => this.views.delete(customerId));
         this.kitchen.serve(order, tx, () => {
           play('bell');
+          // The tip is left on the counter beside the plate, then goes in the jar.
+          const side = tx < this.registerX() ? 1 : -1;
+          this.tipJar.addTip(tx + side * 46 * this.uiScale, this.kitchenLayout().laneY + 8 * this.uiScale, tip, this.engine.score);
           // Served in the green: delighted; yellow: pleased; red: about time.
           const mood = patienceLeft >= 0.5 ? 'delighted' : patienceLeft >= 0.2 ? 'pleased' : 'grumpy';
           if (mood === 'delighted') play('cheer');
@@ -324,7 +327,6 @@ export class GameScene extends Phaser.Scene {
       this.setRegisterScore(this.engine.score);
       this.impaleReceipt(tx, this.counterY());
       this.popTip(tx, ty - 60, tip);
-      this.tipJar.addTip(tx, ty - 60, tip, this.engine.score);
     });
 
     e.on('orderChanged', ({ customer }) => {
