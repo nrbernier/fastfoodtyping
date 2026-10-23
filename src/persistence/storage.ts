@@ -9,6 +9,8 @@ export interface Settings {
   pace: Pace;
   /** Language of the orders */
   lang: Lang;
+  /** Sound effects on */
+  sound: boolean;
 }
 
 export interface SaveData {
@@ -21,7 +23,7 @@ export interface SaveData {
   settings?: Settings;
 }
 
-export const DEFAULT_SETTINGS: Settings = { fancyOrders: true, pace: 'steady', lang: 'en' };
+export const DEFAULT_SETTINGS: Settings = { fancyOrders: true, pace: 'steady', lang: 'en', sound: true };
 
 export type StorageBacking = Pick<Storage, 'getItem' | 'setItem'>;
 

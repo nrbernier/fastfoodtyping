@@ -15,6 +15,7 @@ import { COLORS, FONTS, makeStarburst } from '../theme';
 import { DinerBackdrop } from '../DinerBackdrop';
 import { makeCashRegister, makeCondimentGroup, makeReceiptSpike, makeSmallReceipt } from '../scenery';
 import { applyPaperGrain } from '../texture';
+import { isMuted, play, setMuted, unlockAudio } from '../sound';
 import { SHIFTS } from '../../core/shifts';
 import { mulberry32 } from '../../core/rng';
 
@@ -79,6 +80,7 @@ export class GameScene extends Phaser.Scene {
     this.cleanupFns = [];
     this.maxSlots = width < 700 ? 3 : 4;
     const store = new SaveStore(safeLocalStorage());
+    setMuted(this.demo || !store.settings().sound);
     this.engine = new ShiftEngine({
       config: this.config,
       maxCustomersCap: this.maxSlots,
@@ -105,6 +107,16 @@ export class GameScene extends Phaser.Scene {
     this.kitchen = new Kitchen(this, this.kitchenLayout(), { pot: DEPTH.prep, lane: DEPTH.lane, dropped: DEPTH.dropped });
     this.hud = new Hud(this);
     this.hud.layout(width, height);
+    if (!this.demo) {
+      this.hud.addSoundToggle(!isMuted(), (on) => {
+        setMuted(!on);
+        store.updateSettings({ sound: on });
+        if (on) {
+          unlockAudio();
+          play('bell');
+        }
+      });
+    }
     this.buildPauseOverlay(width, height);
     applyPaperGrain(this);
 
@@ -132,6 +144,7 @@ export class GameScene extends Phaser.Scene {
       this.cleanupFns.push(() => document.removeEventListener('visibilitychange', onVis));
 
       this.input.on('pointerdown', () => {
+        unlockAudio();
         if (this.gamePaused) this.resumeGame();
         // Keep the phone keyboard up when the player taps a customer.
         else this.hidden?.focus();
@@ -197,6 +210,7 @@ export class GameScene extends Phaser.Scene {
   // ---- input ----
 
   private onChar(ch: string) {
+    unlockAudio();
     if (this.gamePaused) {
       this.resumeGame();
       return;
@@ -235,6 +249,7 @@ export class GameScene extends Phaser.Scene {
     });
 
     e.on('orderLocked', ({ customerId }) => {
+      play('key');
       this.views.get(customerId)?.setLocked(true);
       this.views.get(customerId)?.updateTyping(this.engine.typedCount);
     });
@@ -244,6 +259,7 @@ export class GameScene extends Phaser.Scene {
     });
 
     e.on('orderProgress', ({ customerId, typedCount }) => {
+      play('key');
       // A paused order picked up again from the keyboard lights up as well.
       const view = this.views.get(customerId);
       if (view && !view.isLocked) view.setLocked(true);
@@ -251,6 +267,7 @@ export class GameScene extends Phaser.Scene {
     });
 
     e.on('wordCompleted', ({ customerId, wordIndex }) => {
+      play('key');
       this.views.get(customerId)?.updateTyping(this.engine.typedCount);
       this.dropWord(customerId, wordIndex);
     });
@@ -266,6 +283,7 @@ export class GameScene extends Phaser.Scene {
       this.time.delayedCall(420, () => {
         if (!order) return view?.serve(() => this.views.delete(customerId));
         this.kitchen.serve(order, tx, () => {
+          play('bell');
           this.time.delayedCall(250, () => view?.serve(() => this.views.delete(customerId)));
         });
       });
@@ -276,12 +294,14 @@ export class GameScene extends Phaser.Scene {
 
     e.on('customerLeft', ({ customerId, strikes }) => {
       const view = this.views.get(customerId);
+      play('grumble');
       view?.stormOut(() => this.views.delete(customerId));
       this.hud.setStrikes(strikes);
       this.cameras.main.shake(150, 0.008);
     });
 
     e.on('mistake', () => {
+      play('mistake');
       this.flashRegister();
       this.kitchen.shake();
     });
@@ -471,6 +491,7 @@ export class GameScene extends Phaser.Scene {
 
   /** Update the cash-register display and pop it. */
   private setRegisterScore(cents: number) {
+    if (cents > this.score) play('register');
     this.score = cents;
     if (!this.registerScore) return;
     this.registerScore.setText(formatMoney(cents));
