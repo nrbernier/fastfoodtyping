@@ -34,6 +34,8 @@ export function pickPose(
   order: Pick<Order, 'tier' | 'fingers'>,
   seated: ReadonlySet<string>,
   rng: () => number,
+  /** Highest tier allowed to walk in (Monday: regulars only) */
+  maxTier = 3,
 ): PoseDef {
   if (order.fingers) {
     const counter = POSES.find((p) => p.fingers === order.fingers);
@@ -41,6 +43,7 @@ export function pickPose(
   }
   let tier: number = order.tier;
   if (rng() >= MATCH_SHARE) tier = tier === 1 ? 2 : tier === 3 ? 2 : 1;
+  tier = Math.min(tier, maxTier);
   const pool = BY_TIER[tier - 1];
   const free = pool.filter((p) => !seated.has(p.character));
   const from = free.length > 0 ? free : pool;

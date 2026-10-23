@@ -77,6 +77,8 @@ export interface ShiftConfig {
   houseChance: { start: number; end: number };
   /** Special customers and rushes; none when absent */
   specials?: ShiftSpecials;
+  /** Highest customer tier that may walk in (1 = regulars only); defaults to all */
+  maxCustomerTier?: 1 | 2 | 3;
   /** A boss night: one big customer at the centre seat instead of a normal shift */
   boss?: BossDef;
 }

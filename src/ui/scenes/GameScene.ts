@@ -245,7 +245,7 @@ export class GameScene extends Phaser.Scene {
       const seated = new Set([...this.views.values()].map((v) => v.character));
       const boss = customer.special === 'boss' && this.config.boss;
       const bossPose = boss ? POSES.find((p) => p.key === boss.poses[0]) : undefined;
-      const pose = bossPose ?? pickPose(customer.order, seated, Math.random);
+      const pose = bossPose ?? pickPose(customer.order, seated, Math.random, this.config.maxCustomerTier);
       const view = new CustomerView(
         this,
         customer,
