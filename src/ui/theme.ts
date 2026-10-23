@@ -12,12 +12,13 @@ export function makeButton(
   label: string,
   onClick: () => void,
   enabled = true,
+  style: { fontSize?: number; fill?: number; color?: string } = {},
 ): Phaser.GameObjects.Container {
   const text = scene.add
     .text(0, 0, label, {
       fontFamily: FONTS.slab,
-      fontSize: '24px',
-      color: COLORS.cream,
+      fontSize: `${style.fontSize ?? 24}px`,
+      color: style.color ?? COLORS.cream,
       align: 'center',
     })
     .setOrigin(0.5);
@@ -25,7 +26,7 @@ export function makeButton(
   const h = text.height + 18;
   const shadow = scene.add.rectangle(4, 4, w, h, COLORS.darkHex, 0.4).setOrigin(0.5);
   const bg = scene.add
-    .rectangle(0, 0, w, h, enabled ? COLORS.redHex : COLORS.disabledHex)
+    .rectangle(0, 0, w, h, enabled ? style.fill ?? COLORS.redHex : COLORS.disabledHex)
     .setStrokeStyle(3, COLORS.darkHex)
     .setOrigin(0.5);
   const btn = scene.add.container(x, y, [shadow, bg, text]).setSize(w, h);
@@ -104,6 +105,8 @@ export interface LiveTicket {
   complete(): void;
   /** Resting scale the pop animations spring back to (responsive shrink). */
   setBaseScale(s: number): void;
+  /** Jumble the letters still to type for `ms` (a boss trick); typing is unaffected. */
+  scramble(ms: number): void;
   /** Paper size at scale 1, for hit areas. */
   width: number;
   height: number;
@@ -146,8 +149,15 @@ export function makeLiveTicket(
   const textGroup = scene.add.container(0, 0, lines.flatMap((l) => [l.typed, l.caret, l.rest]));
   const container = scene.add.container(x, y, [shadow, tail, paper, textGroup]);
   let baseScale = 1;
+  let lastTyped = 0;
+  let scrambled = false;
+
+  /** Shuffle each word's letters in place, keeping spaces where they are. */
+  const jumble = (str: string) =>
+    str.split(' ').map((w) => [...w].sort(() => Math.random() - 0.5).join('')).join(' ');
 
   function update(typedCount: number) {
+    lastTyped = typedCount;
     for (const line of lines) {
       const local = Math.max(0, Math.min(typedCount, line.end) - line.start);
       const done = text.slice(line.start, line.start + local);
@@ -155,7 +165,7 @@ export function makeLiveTicket(
       // The first `hiddenChars` stay a single "?" until the player has typed past them.
       if (line.start === 0 && typedCount < hiddenChars) remaining = `?${text.slice(hiddenChars, line.end).trimEnd()}`;
       line.typed.setText(done);
-      line.rest.setText(remaining);
+      line.rest.setText(scrambled ? jumble(remaining) : remaining);
       // The caret sits on the line holding the next character to type.
       line.caret.setVisible(typedCount < text.length && typedCount >= line.start && typedCount < line.end);
       const caretW = line.caret.visible ? line.caret.width : 0;
@@ -185,6 +195,17 @@ export function makeLiveTicket(
     baseScale = s;
   }
 
+  function scramble(ms: number) {
+    scrambled = true;
+    update(lastTyped);
+    scene.tweens.add({ targets: textGroup, angle: 3, duration: 80, yoyo: true, repeat: 3 });
+    scene.time.delayedCall(ms, () => {
+      if (!container.active) return;
+      scrambled = false;
+      update(lastTyped);
+    });
+  }
+
   update(0);
-  return { container, update, complete, setBaseScale, width: w, height: h };
+  return { container, update, complete, setBaseScale, scramble, width: w, height: h };
 }

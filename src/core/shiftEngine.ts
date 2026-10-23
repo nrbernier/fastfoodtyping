@@ -1,12 +1,12 @@
 import { Emitter } from './emitter';
-import { orderPatienceMs, paramsAt, type Pace } from './difficulty';
+import { lerp, mixTiers, orderPatienceMs, paramsAt, type Pace } from './difficulty';
 import { OrderGenerator, type Focus } from './orderGenerator';
 import type { Vocabulary } from './lang';
 import { mulberry32, type Rng } from './rng';
 import { CUSTOMER_BONUS, orderTip, RUSH_BONUS_PER_ORDER } from './scoring';
 import { TypingEngine } from './typingEngine';
 import { emptyTally, recordKey } from './typingStats';
-import type { CustomerState, GameEvents, LiveParams, OrderTiming, ShiftConfig, ShiftResult } from './types';
+import type { BossMove, CustomerState, GameEvents, LiveParams, Order, OrderTiming, ShiftConfig, ShiftResult } from './types';
 
 export interface ShiftEngineOptions {
   config: ShiftConfig;
@@ -67,6 +67,13 @@ export class ShiftEngine {
   private rushIndex = 0;
   private rushLost = false;
   private rushSize = 0;
+  /** Boss night state: dishes served and still owed, his next trick, a hurry spell. */
+  private bossServed = 0;
+  private bossTotal = 0;
+  private nextMoveAt = 0;
+  private hurryUntil = 0;
+  private sendBackNext = false;
+  private sentBack: Order | null = null;
 
   constructor(opts: ShiftEngineOptions) {
     this.config = opts.config;
@@ -75,6 +82,20 @@ export class ShiftEngine {
     this.pace = opts.pace ?? 'rush';
     this.rng = opts.rng ?? mulberry32(Date.now() >>> 0);
     this.generator = new OrderGenerator(this.rng, opts.focus, opts.vocabulary);
+    if (this.config.boss) {
+      this.bossTotal = this.config.boss.dishes;
+      this.nextMoveAt = this.config.boss.moveEveryMs;
+    }
+  }
+
+  /** The boss, once he has sat down. */
+  get boss(): CustomerState | undefined {
+    return this.activeCustomers.find((c) => c.special === 'boss');
+  }
+
+  /** Dishes the boss still wants, and how many he has asked for in all. */
+  get bossAppetite(): { left: number; total: number } {
+    return { left: this.bossTotal - this.bossServed, total: this.bossTotal };
   }
 
   get isOver(): boolean {
@@ -117,9 +138,20 @@ export class ShiftEngine {
       if (this.rushLeft === 0) this.startRush();
     }
 
+    const bossDef = this.config.boss;
+    if (bossDef && !this.customers.some((c) => c.special === 'boss') && this.elapsed >= FIRST_SPAWN_MS) {
+      this.spawnBoss(params);
+      this.spawnAt = this.elapsed + params.spawnIntervalMs;
+    }
+    if (bossDef && this.boss && this.elapsed >= this.nextMoveAt) {
+      this.nextMoveAt = this.elapsed + bossDef.moveEveryMs;
+      this.bossMove(bossDef.moves[Math.floor(this.rng() * bossDef.moves.length)]);
+    }
+
     // During a rush every free seat fills fast; otherwise the shift's pacing.
     const seats = this.rushLeft > 0 ? this.cap : Math.min(params.maxCustomers, this.cap);
-    if (!timeUp && this.elapsed >= this.spawnAt && this.activeCustomers.length < seats) {
+    const spawnOk = !bossDef || this.customers.some((c) => c.special === 'boss');
+    if (!timeUp && spawnOk && this.elapsed >= this.spawnAt && this.activeCustomers.length < seats) {
       this.spawn(params);
       this.spawnAt = this.elapsed + (this.rushLeft > 0 ? RUSH_SPAWN_MS : params.spawnIntervalMs);
     }
@@ -127,10 +159,14 @@ export class ShiftEngine {
     for (const c of this.activeCustomers) {
       if (c.eatingMs) {
         c.eatingMs = Math.max(0, c.eatingMs - dtMs);
-        if (c.eatingMs === 0) this.orderNextCourse(c, params);
+        if (c.eatingMs === 0) {
+          if (c.special === 'boss') this.orderBossDish(c);
+          else this.orderNextCourse(c, params);
+        }
         continue;
       }
-      c.patienceMs -= dtMs;
+      // A boss in a hurry loses his temper twice as fast.
+      c.patienceMs -= c.special === 'boss' && this.elapsed < this.hurryUntil ? dtMs * 2 : dtMs;
       if (c.patienceMs <= 0) {
         c.patienceMs = 0;
         c.resolved = true;
@@ -139,7 +175,8 @@ export class ShiftEngine {
         this.cleanStreak = 0;
         if (c.special === 'rush') this.rushLost = true;
         this.events.emit('customerLeft', { customerId: c.id, strikes: this.strikes });
-        if (this.strikes >= MAX_STRIKES) return this.end(false);
+        // The boss storming out ends the night at once.
+        if (this.strikes >= MAX_STRIKES || c.special === 'boss') return this.end(false);
         this.checkRushOver();
       }
     }
@@ -210,6 +247,9 @@ export class ShiftEngine {
       case 'mistake':
         this.mistakes += 1;
         this.cleanStreak = 0;
+        if (this.config.boss && this.boss && (res.customerId === null || res.customerId === this.boss.id)) {
+          this.boss.patienceMs = Math.max(1, this.boss.patienceMs - this.config.boss.mistakeMs);
+        }
         this.events.emit('mistake', { customerId: res.customerId });
         return;
     }
@@ -279,6 +319,80 @@ export class ShiftEngine {
     this.events.emit('nextCourse', { customer: c });
   }
 
+  /** The boss takes the centre seat. */
+  private spawnBoss(params: LiveParams): void {
+    const def = this.config.boss!;
+    const customer: CustomerState = {
+      id: this.nextId++,
+      slot: Math.floor((this.cap - 1) / 2),
+      order: this.bossOrder(),
+      patienceTotalMs: def.patienceMs,
+      patienceMs: def.patienceMs,
+      resolved: false,
+      special: 'boss',
+    };
+    void params;
+    this.customers.push(customer);
+    this.events.emit('customerArrived', { customer });
+    this.events.emit('bossAppetite', this.bossAppetite);
+  }
+
+  /** His next dish: harder as he works through his appetite. */
+  private bossOrder(): Order {
+    const def = this.config.boss!;
+    const t = this.bossTotal > 1 ? Math.min(1, this.bossServed / (this.bossTotal - 1)) : 1;
+    const others = new Set(
+      this.typableCustomers.filter((x) => x.special !== 'boss').map((x) => x.order.normalized[0].toLowerCase()),
+    );
+    return this.generator.next({
+      tierWeights: mixTiers(def.menu.start, def.menu.end, t),
+      wordsPerOrder: lerp(def.menu.wordsPerOrder.start, def.menu.wordsPerOrder.end, t),
+      countChance: 0,
+      houseChance: this.houseOrders ? def.menu.houseChance : 0,
+    }, others);
+  }
+
+  private orderBossDish(c: CustomerState): void {
+    c.order = this.sentBack ?? this.bossOrder();
+    this.sentBack = null;
+    this.events.emit('nextCourse', { customer: c });
+  }
+
+  private bossMove(kind: BossMove): void {
+    const boss = this.boss!;
+    if (kind === 'seconds') {
+      this.bossTotal += 1;
+      this.events.emit('bossAppetite', this.bossAppetite);
+    } else if (kind === 'hurry') {
+      this.hurryUntil = this.elapsed + 5000;
+    } else if (kind === 'sendBack') {
+      this.sendBackNext = true;
+    }
+    this.events.emit('bossMove', { kind, customerId: boss.id });
+  }
+
+  /** A dish lands in front of the boss. */
+  private serveBoss(c: CustomerState): void {
+    const def = this.config.boss!;
+    if (this.sendBackNext) {
+      // "Too cold!": the same dish comes straight back, typing starts over.
+      this.sendBackNext = false;
+      this.sentBack = c.order;
+      this.bossTotal += 1;
+      this.events.emit('bossAppetite', this.bossAppetite);
+    }
+    this.bossServed += 1;
+    c.patienceMs = Math.min(c.patienceTotalMs, c.patienceMs + def.calmMs);
+    this.events.emit('bossAppetite', this.bossAppetite);
+    if (this.bossServed >= this.bossTotal) {
+      c.resolved = true;
+      this.score += def.bonus;
+      this.end(true);
+      return;
+    }
+    c.eatingMs = 900;
+  }
+
   private spawn(params: LiveParams): void {
     const usedLetters = this.usedFirstLetters();
     const orderParams = this.houseOrders ? params.order : { ...params.order, houseChance: 0 };
@@ -332,6 +446,11 @@ export class ShiftEngine {
     this.cleanStreak += 1;
     this.bestCombo = Math.max(this.bestCombo, this.cleanStreak);
     this.timeOrder(c);
+    if (c.special === 'boss') {
+      this.events.emit('orderServed', { customerId, tip, finalWordIndex, patienceLeft, stays: true });
+      this.serveBoss(c);
+      return;
+    }
     const stays = c.special === 'diner' && (c.courses ?? 0) > 0;
     if (stays) {
       c.courses! -= 1;

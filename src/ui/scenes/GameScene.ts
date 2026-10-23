@@ -2,7 +2,8 @@ import Phaser from 'phaser';
 import { ShiftEngine } from '../../core/shiftEngine';
 import { practiceFocus } from '../../core/typingStats';
 import { VOCABULARIES, type Lang } from '../../core/lang';
-import { line, reaction } from '../reactions';
+import { bossLine, line, reaction } from '../reactions';
+import { POSES } from '../cast';
 import { TipJar } from '../TipJar';
 import { SaveStore, safeLocalStorage } from '../../persistence/storage';
 import type { ShiftConfig } from '../../core/types';
@@ -40,6 +41,7 @@ export class GameScene extends Phaser.Scene {
   private hud!: Hud;
   private kitchen!: Kitchen;
   private tipJar!: TipJar;
+  private appetiteText?: Phaser.GameObjects.Text;
   private store!: SaveStore;
   private lang: Lang = 'en';
   private pauseOverlay!: Phaser.GameObjects.Container;
@@ -115,6 +117,12 @@ export class GameScene extends Phaser.Scene {
     this.tipJar = new TipJar(this, ...this.tipJarPlace(), DEPTH.prep + 2);
     this.hud = new Hud(this);
     this.hud.layout(width, height);
+    if (this.config.boss) {
+      // How much the boss still wants, under the shift name.
+      this.appetiteText = this.add.text(width / 2, this.counterY() * 0.17 + 44 * this.uiScale, '', {
+        fontFamily: FONTS.slab, fontSize: '22px', color: COLORS.mustard, stroke: COLORS.dark, strokeThickness: 5,
+      }).setOrigin(0.5, 0).setScale(this.uiScale).setDepth(DEPTH.hud);
+    }
     if (!this.demo) {
       this.hud.addSoundToggle(!isMuted(), (on) => {
         setMuted(!on);
@@ -235,7 +243,9 @@ export class GameScene extends Phaser.Scene {
     e.on('customerArrived', ({ customer }) => {
       this.orderWords.set(customer.id, customer.order.words);
       const seated = new Set([...this.views.values()].map((v) => v.character));
-      const pose = pickPose(customer.order, seated, Math.random);
+      const boss = customer.special === 'boss' && this.config.boss;
+      const bossPose = boss ? POSES.find((p) => p.key === boss.poses[0]) : undefined;
+      const pose = bossPose ?? pickPose(customer.order, seated, Math.random);
       const view = new CustomerView(
         this,
         customer,
@@ -245,9 +255,15 @@ export class GameScene extends Phaser.Scene {
         DEPTH.ticket,
         DEPTH.ticketActive,
         this.uiScale,
-        this.staggerFor(customer.slot),
+        bossPose ? 0 : this.staggerFor(customer.slot),
+        bossPose ? 1.35 : 1,
       );
       view.setDepth(DEPTH.customer);
+      if (bossPose) {
+        play('rush');
+        this.banner(this.config.name.replace(/^.*?:\s*/, '').toUpperCase(), COLORS.mustard);
+        this.time.delayedCall(900, () => view.say(bossLine(this.config.id, 'intro', this.lang), 1800));
+      }
       // Tap a customer to work on their order instead; tap again to let it go.
       view.onTap(() => {
         if (this.gamePaused) return;
@@ -324,8 +340,36 @@ export class GameScene extends Phaser.Scene {
 
     e.on('nextCourse', ({ customer }) => {
       play('coin');
+      const before = this.orderWords.get(customer.id)?.join(' ');
       this.orderWords.set(customer.id, customer.order.words);
-      this.views.get(customer.id)?.replaceOrder(customer.order, line('course', this.lang));
+      const say = customer.special !== 'boss'
+        ? line('course', this.lang)
+        : bossLine(this.config.id, before === customer.order.text ? 'sentBack' : 'more', this.lang);
+      this.views.get(customer.id)?.replaceOrder(customer.order, say);
+    });
+
+    e.on('bossAppetite', ({ left }) => {
+      if (!this.appetiteText) return;
+      const label = this.lang === 'fr' ? `ENCORE ${left} PLAT${left > 1 ? 'S' : ''}` : `${left} DISH${left === 1 ? '' : 'ES'} TO GO`;
+      this.appetiteText.setText(label).setVisible(left > 0);
+      this.tweens.add({ targets: this.appetiteText, scale: 1.2 * this.uiScale, duration: 90, yoyo: true });
+    });
+
+    e.on('bossMove', ({ kind, customerId }) => {
+      const view = this.views.get(customerId);
+      const say = bossLine(this.config.id, kind === 'sendBack' ? 'sendBackWarn' : kind, this.lang);
+      if (kind === 'hurry') {
+        play('grumble');
+        this.banner(say, COLORS.red);
+        this.cameras.main.shake(200, 0.006);
+      } else if (kind === 'scramble') {
+        play('swap');
+        view?.scrambleTicket(2200);
+        view?.say(say, 1600);
+      } else {
+        play('swap');
+        view?.say(say, 1600);
+      }
     });
 
     e.on('rushStarted', () => {
@@ -358,7 +402,13 @@ export class GameScene extends Phaser.Scene {
     });
 
     e.on('shiftEnded', ({ result }) => {
-      this.time.delayedCall(700, () =>
+      if (this.config.boss) {
+        const won = result.won;
+        if (won) play('cheer');
+        this.banner(bossLine(this.config.id, won ? 'beaten' : 'lost', this.lang), won ? COLORS.mustard : COLORS.red);
+      }
+      // A boss night lingers so the last dish and the verdict can be seen.
+      this.time.delayedCall(this.config.boss ? 2600 : 700, () =>
         this.scene.start('results', { config: this.config, result }),
       );
     });
@@ -457,8 +507,10 @@ export class GameScene extends Phaser.Scene {
     const counterY = height * COUNTER_Y_FRACTION;
     const ui = this.uiScaleFor(width, height);
     this.uiScale = ui;
-    const shiftIndex = SHIFTS.findIndex((s) => s.id === this.config.id);
-    const menuIndex = shiftIndex >= 0 ? shiftIndex : SHIFTS.length; // overtime -> weirdest menu
+    // A boss night keeps the menu board of the day it follows; overtime gets the weirdest.
+    const day = (this.config as { after?: string }).after ?? this.config.id;
+    const shiftIndex = SHIFTS.findIndex((s) => s.id === day);
+    const menuIndex = shiftIndex >= 0 ? shiftIndex : SHIFTS.length;
 
     // The register (and its score text) is part of staticScenery and gets
     // destroyed/rebuilt here; kill any in-flight score pop/flash tween first so

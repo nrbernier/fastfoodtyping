@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { OVERTIME, SHIFTS } from '../../core/shifts';
 import { formatMoney } from '../../core/money';
 import { SaveStore, safeLocalStorage } from '../../persistence/storage';
+import { UNLOCK_ALL } from '../preview';
 import { COLORS, FONTS, makeButton, makeStarburst } from '../theme';
 import { applyPaperGrain } from '../texture';
 import { PLACEHOLDER_KEY, TITLE_LINEUP } from '../assets';
@@ -14,7 +15,7 @@ export class TitleScene extends Phaser.Scene {
   create() {
     const { width, height } = this.scale;
     const save = new SaveStore(safeLocalStorage()).load();
-    const overtimeUnlocked = save.unlockedShift >= SHIFTS.length;
+    const overtimeUnlocked = UNLOCK_ALL || save.unlockedShift >= SHIFTS.length;
 
     // teal poster field with checkerboard floor strip
     this.add.rectangle(0, 0, width, height, COLORS.wall).setOrigin(0);

@@ -1,5 +1,7 @@
 import type { ShiftConfig } from './types';
 
+const NONE = { start: 0, end: 0 };
+
 export const SHIFTS: readonly ShiftConfig[] = [
   {
     id: 'monday',
@@ -92,3 +94,87 @@ export const OVERTIME: ShiftConfig = {
   // a drink rush every minute, for as long as Overtime lasts
   specials: { fickle: 0.08, courses: 0.1, rushAtMs: Array.from({ length: 30 }, (_, i) => (i + 1) * 60_000) },
 };
+
+/**
+ * Boss nights, one after Wednesday and one after Friday. A single big
+ * customer takes the centre seat and orders dish after dish; his patience is
+ * a temper bar that each dish calms and each wrong key stokes. Serve his
+ * whole appetite to win; if he storms out, the night is lost.
+ */
+export const BOSSES: readonly (ShiftConfig & { after: string })[] = [
+  {
+    id: 'boss-lou',
+    after: 'wednesday',
+    name: "Boss Night: Big Lou's Banquet",
+    durationMs: Infinity,
+    rampMs: 60_000,
+    maxCustomers: { start: 1, end: 1 },
+    spawnIntervalMs: { start: 60_000, end: 60_000 },
+    patienceMs: { start: 30_000, end: 30_000 },
+    tierWeights: { start: { t1: 1, t2: 0, t3: 0 }, end: { t1: 1, t2: 0, t3: 0 } },
+    wordsPerOrder: { start: 1, end: 1 },
+    countChance: NONE,
+    houseChance: NONE,
+    boss: {
+      poses: ['s-11-114', 's-11-112', 's-19-205'],
+      dishes: 12,
+      patienceMs: 22_000,
+      calmMs: 7000,
+      mistakeMs: 700,
+      moves: ['seconds', 'hurry'],
+      moveEveryMs: 9000,
+      menu: {
+        start: { t1: 1, t2: 0, t3: 0 },
+        end: { t1: 0.2, t2: 0.8, t3: 0 },
+        wordsPerOrder: { start: 1, end: 1 },
+        houseChance: 0,
+      },
+      bonus: 300,
+    },
+  },
+  {
+    id: 'boss-moneybags',
+    after: 'friday',
+    name: 'Boss Night: Moneybags Showdown',
+    durationMs: Infinity,
+    rampMs: 60_000,
+    maxCustomers: { start: 3, end: 3 },
+    spawnIntervalMs: { start: 6000, end: 4500 },
+    patienceMs: { start: 12_000, end: 10_000 },
+    tierWeights: { start: { t1: 1, t2: 0, t3: 0 }, end: { t1: 0.7, t2: 0.3, t3: 0 } },
+    wordsPerOrder: { start: 1, end: 1 },
+    countChance: NONE,
+    houseChance: NONE,
+    boss: {
+      poses: ['s-16-165'],
+      dishes: 9,
+      patienceMs: 26_000,
+      calmMs: 8000,
+      mistakeMs: 900,
+      moves: ['scramble', 'sendBack', 'hurry'],
+      moveEveryMs: 8000,
+      menu: {
+        start: { t1: 0, t2: 0.7, t3: 0.3 },
+        end: { t1: 0, t2: 0.2, t3: 0.8 },
+        wordsPerOrder: { start: 2, end: 3 },
+        houseChance: 0.2,
+      },
+      bonus: 600,
+    },
+  },
+];
+
+/** The week in order: each boss night follows the day it is named after, Overtime comes last. */
+export const WEEK: readonly ShiftConfig[] = SHIFTS.flatMap((shift) => [shift, ...BOSSES.filter((b) => b.after === shift.id)]);
+
+/** What to play after `id`: the next night of the week, or Overtime after the last. */
+export function nextInWeek(id: string): ShiftConfig | undefined {
+  const i = WEEK.findIndex((s) => s.id === id);
+  if (i < 0) return undefined;
+  return WEEK[i + 1] ?? OVERTIME;
+}
+
+/** A boss night opens once the day before it has been won. */
+export function bossUnlocked(boss: { after: string }, unlockedShift: number): boolean {
+  return unlockedShift > SHIFTS.findIndex((s) => s.id === boss.after);
+}

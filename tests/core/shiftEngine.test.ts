@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ShiftEngine } from '../../src/core/shiftEngine';
 import { mulberry32 } from '../../src/core/rng';
 import type { ShiftConfig, ShiftResult } from '../../src/core/types';
+import { BOSSES } from '../../src/core/shifts';
 
 const TEST_CONFIG: ShiftConfig = {
   id: 'test',
@@ -226,5 +227,72 @@ describe('ShiftEngine', () => {
     }
     expect(ended).toEqual({ cleared: true, bonus: expect.any(Number) });
     expect(engine.score - before).toBeGreaterThan(ended!.bonus);
+  });
+
+  describe('boss nights', () => {
+    const [lou, moneybags] = BOSSES;
+    const bossEngine = (config: ShiftConfig) => new ShiftEngine({ config, rng: mulberry32(5), maxCustomersCap: 3 });
+
+    it('seats the boss in the centre and wins once his whole appetite is served', () => {
+      const engine = bossEngine({ ...lou, boss: { ...lou.boss!, moves: [], dishes: 3 } });
+      let result: ShiftResult | null = null;
+      engine.events.on('shiftEnded', (e) => (result = e.result));
+      step(engine, 1000);
+      const boss = engine.boss!;
+      expect(boss.slot).toBe(1);
+      expect(engine.activeCustomers).toHaveLength(1);
+      for (let i = 0; i < 3; i++) {
+        typeOrder(engine, engine.boss!.order.normalized);
+        step(engine, 1000);
+      }
+      expect(result!.won).toBe(true);
+      expect(result!.served).toBe(3);
+    });
+
+    it('ends the night at once if the boss storms out', () => {
+      const engine = bossEngine({ ...lou, boss: { ...lou.boss!, moves: [] } });
+      let result: ShiftResult | null = null;
+      engine.events.on('shiftEnded', (e) => (result = e.result));
+      step(engine, 25_000);
+      expect(result!.won).toBe(false);
+      expect(result!.strikes).toBe(1);
+    });
+
+    it('wrong keys stoke his temper and dishes calm it', () => {
+      const engine = bossEngine({ ...lou, boss: { ...lou.boss!, moves: [] } });
+      step(engine, 3000);
+      const boss = engine.boss!;
+      const before = boss.patienceMs;
+      engine.handleKey(boss.order.normalized[0] === 'q' ? 'z' : 'q');
+      expect(boss.patienceMs).toBeCloseTo(before - lou.boss!.mistakeMs);
+      const low = boss.patienceMs;
+      typeOrder(engine, boss.order.normalized);
+      expect(boss.patienceMs).toBeGreaterThan(low);
+    });
+
+    it('asks for seconds, growing his appetite', () => {
+      const engine = bossEngine({ ...lou, boss: { ...lou.boss!, moves: ['seconds'], moveEveryMs: 2000 } });
+      const moves: string[] = [];
+      engine.events.on('bossMove', (e) => moves.push(e.kind));
+      step(engine, 5000);
+      expect(moves.length).toBeGreaterThanOrEqual(2);
+      expect(engine.bossAppetite.total).toBe(lou.boss!.dishes + moves.length);
+    });
+
+    it('sends a dish back: the same order returns', () => {
+      const engine = bossEngine({ ...moneybags, maxCustomers: { start: 1, end: 1 }, boss: { ...moneybags.boss!, moves: ['sendBack'], moveEveryMs: 1500 } });
+      step(engine, 1600); // boss seated at 800, sends back at 1500
+      const text = engine.boss!.order.normalized;
+      typeOrder(engine, text);
+      step(engine, 1000);
+      expect(engine.boss!.order.normalized).toBe(text);
+      expect(engine.bossAppetite.left).toBe(moneybags.boss!.dishes);
+    });
+
+    it('keeps the side seats busy on the Moneybags night', () => {
+      const engine = bossEngine(moneybags);
+      step(engine, 15_000);
+      expect(engine.activeCustomers.length).toBeGreaterThan(1);
+    });
   });
 });
