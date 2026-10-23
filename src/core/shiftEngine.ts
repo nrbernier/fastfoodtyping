@@ -126,6 +126,31 @@ export class ShiftEngine {
     }
   }
 
+  /** Typed so far on a customer's order (kept while the player works elsewhere). */
+  progressOf(customerId: number): number {
+    return this.typing.progressOf(customerId);
+  }
+
+  /** Switch to a customer's order, e.g. by tapping them; what was typed on it is kept. */
+  selectCustomer(customerId: number): void {
+    if (this.over) return;
+    const c = this.activeCustomers.find((x) => x.id === customerId);
+    const previous = this.typing.locked;
+    if (!c || previous === customerId) return;
+    if (previous !== null) this.events.emit('orderReleased', { customerId: previous });
+    this.typing.select(customerId);
+    if (!this.lockedAt.has(customerId)) this.lockedAt.set(customerId, this.elapsed);
+    this.events.emit('orderLocked', { customerId });
+  }
+
+  /** Let go of the current order without losing its progress. */
+  releaseLock(): void {
+    const previous = this.typing.locked;
+    if (previous === null) return;
+    this.typing.unlock();
+    this.events.emit('orderReleased', { customerId: previous });
+  }
+
   handleKey(char: string): void {
     if (this.over) return;
     const orders = this.activeCustomers.map((c) => ({ id: c.id, normalized: c.order.normalized, exact: c.order.exact }));
@@ -136,7 +161,7 @@ export class ShiftEngine {
         return;
       case 'locked':
         this.correctChars += 1;
-        this.lockedAt.set(res.customerId, this.elapsed);
+        if (!this.lockedAt.has(res.customerId)) this.lockedAt.set(res.customerId, this.elapsed);
         this.events.emit('orderLocked', { customerId: res.customerId });
         return;
       case 'progress':

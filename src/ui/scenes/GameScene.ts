@@ -133,7 +133,16 @@ export class GameScene extends Phaser.Scene {
 
       this.input.on('pointerdown', () => {
         if (this.gamePaused) this.resumeGame();
+        // Keep the phone keyboard up when the player taps a customer.
+        else this.hidden?.focus();
       });
+
+      // Escape lets go of the current order (its progress is kept).
+      const onEscape = (e: KeyboardEvent) => {
+        if (e.key === 'Escape' && !this.gamePaused) this.engine.releaseLock();
+      };
+      window.addEventListener('keydown', onEscape);
+      this.cleanupFns.push(() => window.removeEventListener('keydown', onEscape));
     }
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -216,6 +225,12 @@ export class GameScene extends Phaser.Scene {
         this.staggerFor(customer.slot),
       );
       view.setDepth(DEPTH.customer);
+      // Tap a customer to work on their order instead; tap again to let it go.
+      view.onTap(() => {
+        if (this.gamePaused) return;
+        if (this.engine.lockedCustomerId === customer.id) this.engine.releaseLock();
+        else this.engine.selectCustomer(customer.id);
+      });
       this.views.set(customer.id, view);
     });
 
@@ -224,8 +239,15 @@ export class GameScene extends Phaser.Scene {
       this.views.get(customerId)?.updateTyping(this.engine.typedCount);
     });
 
+    e.on('orderReleased', ({ customerId }) => {
+      this.views.get(customerId)?.setLocked(false);
+    });
+
     e.on('orderProgress', ({ customerId, typedCount }) => {
-      this.views.get(customerId)?.updateTyping(typedCount);
+      // A paused order picked up again from the keyboard lights up as well.
+      const view = this.views.get(customerId);
+      if (view && !view.isLocked) view.setLocked(true);
+      view?.updateTyping(typedCount);
     });
 
     e.on('wordCompleted', ({ customerId, wordIndex }) => {

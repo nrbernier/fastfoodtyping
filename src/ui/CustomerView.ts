@@ -137,6 +137,19 @@ export class CustomerView extends Phaser.GameObjects.Container {
     return Math.max(this.uiScale, MIN_TICKET_SCALE);
   }
 
+  /** Tapping the customer or their ticket calls `onTap` (switch to / let go of this order). */
+  onTap(onTap: () => void) {
+    const { width: w, height: h } = this.ticket;
+    this.sprite.setInteractive({ useHandCursor: true }).on('pointerdown', onTap);
+    this.ticket.container
+      .setInteractive(new Phaser.Geom.Rectangle(-w / 2, -h / 2, w, h), Phaser.Geom.Rectangle.Contains)
+      .on('pointerdown', onTap);
+  }
+
+  get isLocked(): boolean {
+    return this.locked;
+  }
+
   setLocked(locked: boolean) {
     this.locked = locked;
     // The order being typed jumps above every other ticket (and the HUD).

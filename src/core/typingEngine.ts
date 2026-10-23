@@ -20,24 +20,51 @@ export type KeyResult =
   | { kind: 'completed'; customerId: number; finalWordIndex: number }
   | { kind: 'mistake'; customerId: number | null };
 
+/**
+ * Routes keystrokes to one order at a time. Typing an order's first letter
+ * locks onto it; progress is kept per order, so the player can switch to
+ * another customer (select) or let go (unlock) and come back later.
+ */
 export class TypingEngine {
   private lockedId: number | null = null;
-  private typed = 0;
+  private progress = new Map<number, number>();
 
   get locked(): number | null {
     return this.lockedId;
   }
 
   get typedCount(): number {
-    return this.typed;
+    return this.lockedId === null ? 0 : this.progressOf(this.lockedId);
   }
 
-  /** Call when a customer despawns so a stale lock doesn't linger. */
+  private get typed(): number {
+    return this.typedCount;
+  }
+
+  /** Characters already typed on an order, locked or not. */
+  progressOf(customerId: number): number {
+    return this.progress.get(customerId) ?? 0;
+  }
+
+  /** Call when a customer despawns so a stale lock or progress doesn't linger. */
   release(customerId: number): void {
-    if (this.lockedId === customerId) {
-      this.lockedId = null;
-      this.typed = 0;
-    }
+    this.progress.delete(customerId);
+    if (this.lockedId === customerId) this.lockedId = null;
+  }
+
+  /** Switch to an order (keeping what was already typed on it). */
+  select(customerId: number): void {
+    this.lockedId = customerId;
+  }
+
+  /** Let go of the current order without losing its progress. */
+  unlock(): void {
+    this.lockedId = null;
+  }
+
+  /** Throw away what was typed on an order (it changed). */
+  resetProgress(customerId: number): void {
+    this.progress.delete(customerId);
   }
 
   handleKey(rawChar: string, orders: ReadonlyArray<TypableOrder>): KeyResult {
@@ -45,18 +72,25 @@ export class TypingEngine {
     const char = stripAccents(plainPunctuation(rawChar));
 
     if (this.lockedId === null) {
-      const target = orders.find((o) => matches(o, 0, char));
+      // A fresh order's first letter locks on; failing that, a paused order
+      // resumes if it is the only one waiting for this letter.
+      const fresh = orders.find((o) => this.progressOf(o.id) === 0 && matches(o, 0, char));
+      const paused = orders.filter((o) => this.progressOf(o.id) > 0 && matches(o, this.progressOf(o.id), char));
+      const target = fresh ?? (paused.length === 1 ? paused[0] : undefined);
       if (!target) return { kind: 'mistake', customerId: null };
       this.lockedId = target.id;
-      this.typed = 1;
-      return this.checkBoundaries(target) ?? { kind: 'locked', customerId: target.id };
+      const resumed = this.progressOf(target.id) > 0;
+      this.progress.set(target.id, this.progressOf(target.id) + 1);
+      return (
+        this.checkBoundaries(target) ??
+        (resumed ? { kind: 'progress', customerId: target.id, typedCount: this.typed } : { kind: 'locked', customerId: target.id })
+      );
     }
 
     const target = orders.find((o) => o.id === this.lockedId);
     if (!target) {
       // Locked customer vanished without release(); recover by unlocking.
-      this.lockedId = null;
-      this.typed = 0;
+      this.release(this.lockedId);
       return this.handleKey(rawChar, orders);
     }
 
@@ -64,7 +98,7 @@ export class TypingEngine {
       return { kind: 'mistake', customerId: target.id };
     }
 
-    this.typed += 1;
+    this.progress.set(target.id, this.typed + 1);
     return (
       this.checkBoundaries(target) ?? {
         kind: 'progress',
@@ -79,8 +113,7 @@ export class TypingEngine {
     if (this.typed === target.normalized.length) {
       const finalWordIndex = target.normalized.split(' ').length - 1;
       const id = target.id;
-      this.lockedId = null;
-      this.typed = 0;
+      this.release(id);
       return { kind: 'completed', customerId: id, finalWordIndex };
     }
     if (target.normalized[this.typed] === ' ') {

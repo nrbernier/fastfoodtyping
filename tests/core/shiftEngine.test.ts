@@ -140,4 +140,23 @@ describe('ShiftEngine', () => {
     expect(result!.fastest!.ms).toBeGreaterThan(0);
     expect(result!.slowest).toEqual(result!.fastest);
   });
+
+  it('switches orders on request, keeping what was typed', () => {
+    const engine = makeEngine({ spawnIntervalMs: { start: 300, end: 300 } });
+    const released: number[] = [];
+    engine.events.on('orderReleased', (e) => released.push(e.customerId));
+    step(engine, 1500);
+    const [a, b] = engine.activeCustomers;
+    engine.handleKey(a.order.normalized[0]);
+    engine.handleKey(a.order.normalized[1]);
+    engine.selectCustomer(b.id);
+    expect(released).toEqual([a.id]);
+    expect(engine.lockedCustomerId).toBe(b.id);
+    expect(engine.progressOf(a.id)).toBe(2);
+    engine.releaseLock();
+    expect(engine.lockedCustomerId).toBeNull();
+    engine.selectCustomer(a.id);
+    typeOrder(engine, a.order.normalized.slice(2));
+    expect(a.resolved).toBe(true);
+  });
 });

@@ -104,6 +104,9 @@ export interface LiveTicket {
   complete(): void;
   /** Resting scale the pop animations spring back to (responsive shrink). */
   setBaseScale(s: number): void;
+  /** Paper size at scale 1, for hit areas. */
+  width: number;
+  height: number;
 }
 
 /** Order ticket whose text shows typed (green) vs remaining (ink) with a caret; long orders wrap. */
@@ -183,5 +186,5 @@ export function makeLiveTicket(
   }
 
   update(0);
-  return { container, update, complete, setBaseScale };
+  return { container, update, complete, setBaseScale, width: w, height: h };
 }
