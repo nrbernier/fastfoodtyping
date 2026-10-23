@@ -42,23 +42,34 @@ export class TipJar {
     return { x: this.root.x, y: this.root.y - (H + 2) * this.scale };
   }
 
-  /** Coins arc from (x, y) into the jar; the pile grows to match `totalCents`. */
+  /**
+   * The customer leaves coins on the counter at (x, y), beside their plate;
+   * they pop up with a glint, then arc one by one into the jar, and the pile
+   * grows to match `totalCents`.
+   */
   addTip(fromX: number, fromY: number, tipCents: number, totalCents: number) {
     const coins = Math.max(2, Math.min(6, Math.round(tipCents / 25)));
     const { x: tx, y: ty } = this.mouth;
+    const s = this.scale;
     for (let i = 0; i < coins; i++) {
-      const coin = this.scene.add.ellipse(fromX, fromY, 10 * this.scale, 10 * this.scale, COLORS.mustardHex)
-        .setStrokeStyle(1.5, COLORS.darkHex).setDepth(this.root.depth + 1);
-      const peak = Math.min(fromY, ty) - 60 * this.scale;
+      // a little stack on the counter, slightly fanned
+      const cx = fromX + (i % 3 - 1) * 7 * s;
+      const cy = fromY - Math.floor(i / 3) * 4 * s - i * 1.5 * s;
+      const coin = this.scene.add.ellipse(cx, cy, 11 * s, 11 * s, COLORS.mustardHex)
+        .setStrokeStyle(1.5, COLORS.darkHex).setDepth(this.root.depth + 1).setScale(0);
+      this.scene.tweens.add({ targets: coin, scale: 1, y: cy - 6 * s, duration: 160, delay: i * 50, ease: 'Back.Out' });
+      if (i === 0) this.glint(cx, cy - 10 * s);
+      const peak = Math.min(cy, ty) - 60 * s;
       const t = { p: 0 };
       this.scene.tweens.add({
-        targets: t, p: 1, delay: 250 + i * 70, duration: 520, ease: 'Sine.In',
+        targets: t, p: 1, delay: 650 + i * 90, duration: 520, ease: 'Sine.In',
         onUpdate: () => {
           // A simple arc: linear in x, quadratic through the peak in y.
           const p = t.p;
+          const startY = cy - 6 * s;
           coin.setPosition(
-            Phaser.Math.Linear(fromX, tx, p),
-            (1 - p) * (1 - p) * fromY + 2 * (1 - p) * p * peak + p * p * ty,
+            Phaser.Math.Linear(cx, tx, p),
+            (1 - p) * (1 - p) * startY + 2 * (1 - p) * p * peak + p * p * ty,
           );
           coin.setScale(1, Math.abs(Math.cos(p * 9)) * 0.8 + 0.2); // spinning
         },
@@ -73,6 +84,16 @@ export class TipJar {
         },
       });
     }
+  }
+
+  /** A four-point sparkle where the tip appears. */
+  private glint(x: number, y: number) {
+    const star = this.scene.add.star(x, y, 4, 2 * this.scale, 9 * this.scale, 0xfff6c9)
+      .setStrokeStyle(1, COLORS.darkHex, 0.6).setDepth(this.root.depth + 2).setScale(0);
+    this.scene.tweens.add({
+      targets: star, scale: 1, angle: 45, duration: 180, yoyo: true, hold: 120,
+      onComplete: () => star.destroy(),
+    });
   }
 
   private drawPile() {
