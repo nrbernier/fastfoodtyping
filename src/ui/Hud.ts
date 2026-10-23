@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { makePlateIcon } from './scenery';
+import { COLORS, FONTS } from './palette';
 
 const PLATE_RADIUS = 17;
 const PLATE_GAP = 46;
@@ -8,6 +9,7 @@ const PLATE_GAP = 46;
 export class Hud {
   private strikeRow: Phaser.GameObjects.Container;
   private strikes = 0;
+  private soundToggle?: Phaser.GameObjects.Text;
 
   constructor(private scene: Phaser.Scene) {
     // Strikes live near the top of the screen so a broken plate is impossible to miss.
@@ -18,6 +20,25 @@ export class Hud {
   /** Re-assert the strike row's fixed top-left position after a viewport resize. */
   layout(_width: number, _height: number) {
     this.strikeRow.setPosition(28, 34);
+    this.soundToggle?.setPosition(28 + 2 * PLATE_GAP + 40, 34);
+  }
+
+  /** A small speaker button beside the strike plates. */
+  addSoundToggle(on: boolean, onChange: (on: boolean) => void) {
+    const label = (v: boolean) => (v ? '♪ on' : '♪ off');
+    this.soundToggle = this.scene.add
+      .text(28 + 2 * PLATE_GAP + 40, 34, label(on), {
+        fontFamily: FONTS.mono, fontSize: '15px', color: COLORS.dark,
+        backgroundColor: COLORS.cream, padding: { x: 6, y: 3 },
+      })
+      .setOrigin(0, 0.5)
+      .setDepth(1000)
+      .setInteractive({ useHandCursor: true });
+    this.soundToggle.on('pointerdown', () => {
+      on = !on;
+      this.soundToggle!.setText(label(on));
+      onChange(on);
+    });
   }
 
   setStrikes(n: number) {

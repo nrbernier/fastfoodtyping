@@ -5,6 +5,7 @@ import {
   ART_SCALE, BURNER_KEY, kitchenArt, CLOCHE_BASE_KEY, CLOCHE_LID_KEY, DRINKS, dishTextureKey, FLAME_KEY, POT_KEY, SMOKE_COLORS,
 } from './dishArt';
 import { servingFor } from './dishes';
+import { play } from './sound';
 
 /** Rasterize every kitchen drawing (dishes, pot, cloche) into a texture. */
 export function loadKitchenArt(scene: Phaser.Scene): Promise<unknown> {
@@ -128,6 +129,7 @@ export class Kitchen {
       ease: 'Quad.In',
       onComplete: () => {
         label.destroy();
+        play('plop');
         this.jolt();
         this.steam(true);
       },
@@ -184,6 +186,7 @@ export class Kitchen {
     const dir = Math.sign(targetX - potX) || 1;
     const settle = () => {
       if (!lid || !smoke) return onArrive?.();
+      play('lid');
       this.scene.tweens.add({ targets: lid, x: 18 * ART_SCALE, y: -40 * ART_SCALE, angle: 24, duration: 260, ease: 'Quad.Out' });
       this.scene.tweens.add({ targets: lid, alpha: 0, delay: 500, duration: 300 });
       this.scene.tweens.add({ targets: smoke, scale: 1, alpha: 1, duration: 280, ease: 'Back.Out', onComplete: () => onArrive?.() });
