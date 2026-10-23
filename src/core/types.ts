@@ -101,6 +101,8 @@ export interface ShiftResult {
 export interface GameEvents extends Record<string, unknown> {
   customerArrived: { customer: CustomerState };
   orderLocked: { customerId: number };
+  /** The player let go of (or switched away from) an order; its progress is kept. */
+  orderReleased: { customerId: number };
   orderProgress: { customerId: number; typedCount: number };
   wordCompleted: { customerId: number; wordIndex: number };
   orderServed: { customerId: number; tip: number; finalWordIndex: number };

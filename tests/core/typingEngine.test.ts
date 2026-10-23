@@ -101,4 +101,44 @@ describe('TypingEngine', () => {
     for (const ch of 'Joe') e.handleKey(ch, house);
     expect(e.handleKey('\u2019', house).kind).toBe('progress');
   });
+
+  it('keeps progress per order when switching and comes back to it', () => {
+    const e = new TypingEngine();
+    const two = [{ id: 1, normalized: 'burger' }, { id: 2, normalized: 'malt' }];
+    for (const ch of 'bur') e.handleKey(ch, two);
+    e.select(2);
+    expect(e.typedCount).toBe(0);
+    for (const ch of 'malt') e.handleKey(ch, two);
+    expect(e.locked).toBeNull();
+    e.select(1);
+    expect(e.typedCount).toBe(3);
+    expect(e.handleKey('g', two)).toEqual({ kind: 'progress', customerId: 1, typedCount: 4 });
+  });
+
+  it('lets go without losing progress, and resumes a paused order from the keyboard', () => {
+    const e = new TypingEngine();
+    const two = [{ id: 1, normalized: 'burger' }, { id: 2, normalized: 'malt' }];
+    for (const ch of 'bu') e.handleKey(ch, two);
+    e.unlock();
+    expect(e.progressOf(1)).toBe(2);
+    expect(e.handleKey('r', two)).toEqual({ kind: 'progress', customerId: 1, typedCount: 3 });
+    expect(e.locked).toBe(1);
+  });
+
+  it('prefers a fresh order\'s first letter over resuming a paused one', () => {
+    const e = new TypingEngine();
+    const two = [{ id: 1, normalized: 'pie' }, { id: 2, normalized: 'ice' }];
+    e.handleKey('p', two);
+    e.unlock();
+    expect(e.handleKey('i', two)).toEqual({ kind: 'locked', customerId: 2 });
+  });
+
+  it('drops progress when a customer leaves', () => {
+    const e = new TypingEngine();
+    const one = [{ id: 1, normalized: 'burger' }];
+    e.handleKey('b', one);
+    e.release(1);
+    expect(e.progressOf(1)).toBe(0);
+    expect(e.locked).toBeNull();
+  });
 });
