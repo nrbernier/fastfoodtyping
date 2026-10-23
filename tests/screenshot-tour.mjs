@@ -18,8 +18,8 @@ await new Promise((r) => setTimeout(r, 2500)); // fonts + boot scene
 
 await page.screenshot({ path: `${OUT}/1-title.png` });
 
-// START SHIFT button sits at ~(w/2, h*0.52)
-await page.mouse.click(640, 800 * 0.52);
+// START SHIFT button sits at ~(w/2, h*0.45)
+await page.mouse.click(640, 800 * 0.45);
 await new Promise((r) => setTimeout(r, 800));
 await page.screenshot({ path: `${OUT}/2-shiftselect.png` });
 

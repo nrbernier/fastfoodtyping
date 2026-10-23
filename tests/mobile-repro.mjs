@@ -32,7 +32,7 @@ async function shot(label, shiftIndex, settle) {
   const page = await newGamePage(W, TALL);
   await page.goto(URL, { waitUntil: 'networkidle2' });
   await wait(2200); // fonts + boot
-  await page.mouse.click(W / 2, TALL * 0.52); // START SHIFT
+  await page.mouse.click(W / 2, TALL * 0.45); // START SHIFT
   await wait(700);
   await page.mouse.click(W / 2, shiftY(TALL, shiftIndex)); // chosen shift
   await wait(1000);
