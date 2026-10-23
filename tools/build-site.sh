@@ -17,7 +17,7 @@ for ref in $(git for-each-ref --sort=-committerdate --format='%(refname:short)' 
   [[ "$branch" == main || "$branch" == HEAD || "$branch" == origin ]] && continue
   # Merged branches have nothing new to try.
   git merge-base --is-ancestor "$ref" origin/main && continue
-  slug=$(echo "$branch" | tr -c 'A-Za-z0-9._-\n' '-')
+  slug=$(printf '%s' "$branch" | tr -c 'A-Za-z0-9._' '-')
   echo "::group::preview $branch"
   dir=$(mktemp -d)
   git worktree add --detach "$dir" "$ref" >/dev/null
