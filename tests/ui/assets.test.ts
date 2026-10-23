@@ -69,4 +69,11 @@ describe('pickPose', () => {
       expect(seated.has(p.character), p.key).toBe(false);
     }
   });
+
+  it('only sends wacky poses with weird dishes', () => {
+    const rng = mulberry32(10);
+    for (let i = 0; i < 2000; i++) {
+      expect(pickPose({ tier: (1 + (i % 2)) as 1 | 2 }, new Set(), rng).tier).toBeLessThan(3);
+    }
+  });
 });
