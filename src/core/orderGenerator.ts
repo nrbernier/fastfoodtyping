@@ -1,6 +1,6 @@
-import { pick, type Rng } from './rng';
+import type { Rng } from './rng';
+import { ENGLISH, type Vocabulary } from './lang';
 import { normalizeText, stripAccents } from './text';
-import { COUNT_WORDS, COUNTABLE, DISH_FORMS, HOUSE_ORDERS, INGREDIENTS, PREPARATIONS, TIER1, TIER2 } from './vocabulary';
 import type { Order, OrderParams, TierWeights } from './types';
 
 /** Pool words are not reused while inside this many recent uses. */
@@ -24,6 +24,8 @@ export type Focus = Readonly<Record<string, number>>;
 
 interface Draft {
   words: string[];
+  /** Words subject to the freshness window */
+  fresh: string[];
   tier: 1 | 2 | 3;
   fingers?: number;
   exact?: boolean;
@@ -36,6 +38,7 @@ export class OrderGenerator {
   constructor(
     private rng: Rng,
     private focus: Focus = {},
+    private vocab: Vocabulary = ENGLISH,
   ) {}
 
   /**
@@ -46,39 +49,46 @@ export class OrderGenerator {
    * concurrent customers).
    */
   next(params: OrderParams, excludeFirstLetters: ReadonlySet<string>): Order {
-    let draft: Draft = { words: [], tier: 1 };
+    let draft: Draft = { words: [], fresh: [], tier: 1 };
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
       draft = this.candidate(params);
       const first = normalizeText(draft.words[0])[0];
-      const fresh = !poolWords(draft).some((w) => this.recent.includes(w));
+      const fresh = !draft.fresh.some((w) => this.recent.includes(w));
       const repeats = !draft.exact && new Set(draft.words).size < draft.words.length;
       if (!excludeFirstLetters.has(first) && !repeats && (fresh || attempt >= FRESH_ATTEMPTS)) break;
     }
-    for (const w of poolWords(draft)) this.markUsed(w);
+    for (const w of draft.fresh) this.markUsed(w);
     const text = draft.words.join(' ');
     const normalized = draft.exact ? stripAccents(text) : normalizeText(text);
     const order: Order = { words: draft.words, text, normalized, tier: draft.tier };
     if (draft.fingers) order.fingers = draft.fingers;
     if (draft.exact) order.exact = true;
+    if (this.vocab.lang !== 'en') order.lang = this.vocab.lang;
     return order;
   }
 
   private candidate(params: OrderParams): Draft {
+    const draw = (pool: readonly string[]) => this.draw(pool);
     if (this.rng() < (params.houseChance ?? 0)) {
-      return { words: this.draw(HOUSE_ORDERS).split(' '), tier: 2, exact: true };
+      // A house order counts as one entry for freshness.
+      const text = this.draw(this.vocab.house);
+      return { words: text.split(' '), fresh: [text], tier: 2, exact: true };
     }
     const tier = this.pickTier(params.tierWeights);
     if (tier !== 3 && this.rng() < (params.countChance ?? 0)) {
-      const fingers = 1 + Math.floor(this.rng() * COUNT_WORDS.length);
-      const [one, many] = pick(this.rng, COUNTABLE);
-      return { words: [COUNT_WORDS[fingers - 1], fingers === 1 ? one : many], tier, fingers };
+      // The count word repeats freely; only the dish is kept fresh.
+      const fingers = 1 + Math.floor(this.rng() * this.vocab.maxCount);
+      return { ...this.vocab.counted(fingers, draw), tier, fingers };
     }
-    if (tier === 1) return { words: [this.draw(TIER1)], tier };
-    if (tier === 2) return { words: this.draw(TIER2).split(' '), tier };
-    const count = this.resolveCount(params.wordsPerOrder);
-    if (count <= 1) return { words: [this.draw(DISH_FORMS)], tier };
-    if (count === 2) return { words: [this.draw(INGREDIENTS), this.draw(DISH_FORMS)], tier };
-    return { words: [this.draw(PREPARATIONS), this.draw(INGREDIENTS), this.draw(DISH_FORMS)], tier };
+    if (tier === 1) {
+      const word = this.draw(this.vocab.tier1);
+      return { words: [word], fresh: [word], tier };
+    }
+    if (tier === 2) {
+      const words = this.draw(this.vocab.tier2).split(' ');
+      return { words, fresh: words, tier };
+    }
+    return { ...this.vocab.weird(this.resolveCount(params.wordsPerOrder), draw), tier };
   }
 
   /** Weighted pick favouring rare letters and the practice focus. */
@@ -122,13 +132,4 @@ export function wordWeight(entry: string, focus: Focus = {}): number {
   for (const letter of new Set(text)) w += RARE_LETTER_BOOST[letter] ?? 0;
   for (const [key, boost] of Object.entries(focus)) if (text.includes(key)) w += boost;
   return w;
-}
-
-/**
- * Words subject to the freshness window; a special's count word repeats
- * freely, and a house order counts as one entry.
- */
-function poolWords(draft: Draft): string[] {
-  if (draft.exact) return [draft.words.join(' ')];
-  return draft.fingers ? draft.words.slice(1) : draft.words;
 }

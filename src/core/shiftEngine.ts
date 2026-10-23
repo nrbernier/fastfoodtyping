@@ -1,6 +1,7 @@
 import { Emitter } from './emitter';
 import { orderPatienceMs, paramsAt, type Pace } from './difficulty';
 import { OrderGenerator, type Focus } from './orderGenerator';
+import type { Vocabulary } from './lang';
 import { mulberry32, type Rng } from './rng';
 import { orderTip } from './scoring';
 import { TypingEngine } from './typingEngine';
@@ -18,6 +19,8 @@ export interface ShiftEngineOptions {
   houseOrders?: boolean;
   /** Patience and arrival pacing; defaults to the full-speed rush. */
   pace?: Pace;
+  /** Which language's menu orders come from; English by default. */
+  vocabulary?: Vocabulary;
 }
 
 const FIRST_SPAWN_MS = 800;
@@ -58,7 +61,7 @@ export class ShiftEngine {
     this.houseOrders = opts.houseOrders ?? true;
     this.pace = opts.pace ?? 'rush';
     this.rng = opts.rng ?? mulberry32(Date.now() >>> 0);
-    this.generator = new OrderGenerator(this.rng, opts.focus);
+    this.generator = new OrderGenerator(this.rng, opts.focus, opts.vocabulary);
   }
 
   get isOver(): boolean {

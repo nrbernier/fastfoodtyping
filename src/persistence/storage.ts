@@ -1,4 +1,5 @@
 import type { Pace } from '../core/difficulty';
+import type { Lang } from '../core/lang';
 import { emptyTally, mergeTally, type KeyTally } from '../core/typingStats';
 
 export interface Settings {
@@ -6,6 +7,8 @@ export interface Settings {
   fancyOrders: boolean;
   /** How patient customers are and how quickly they arrive */
   pace: Pace;
+  /** Language of the orders */
+  lang: Lang;
 }
 
 export interface SaveData {
@@ -18,7 +21,7 @@ export interface SaveData {
   settings?: Settings;
 }
 
-export const DEFAULT_SETTINGS: Settings = { fancyOrders: true, pace: 'steady' };
+export const DEFAULT_SETTINGS: Settings = { fancyOrders: true, pace: 'steady', lang: 'en' };
 
 export type StorageBacking = Pick<Storage, 'getItem' | 'setItem'>;
 

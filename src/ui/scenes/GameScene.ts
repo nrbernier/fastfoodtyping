@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { ShiftEngine } from '../../core/shiftEngine';
 import { practiceFocus } from '../../core/typingStats';
+import { VOCABULARIES } from '../../core/lang';
 import { SaveStore, safeLocalStorage } from '../../persistence/storage';
 import type { ShiftConfig } from '../../core/types';
 import { attachPhysicalKeyboard, createHiddenInput, isTouchDevice, type HiddenInput } from '../../input/inputAdapter';
@@ -88,6 +89,7 @@ export class GameScene extends Phaser.Scene {
       houseOrders: store.settings().fancyOrders,
       // The design preview keeps the original full-speed pacing.
       pace: this.demo ? 'rush' : store.settings().pace,
+      vocabulary: VOCABULARIES[this.demo ? 'en' : store.settings().lang],
     });
     this.shiftElapsedMs = 0;
     this.receipts = [];
@@ -331,7 +333,7 @@ export class GameScene extends Phaser.Scene {
 
   /** Lift odd seats' tickets so neighbouring (long) tickets don't overlap. */
   private staggerFor(slot: number): number {
-    return (slot % 2) * -52;
+    return (slot % 2) * -72;
   }
 
   /** Stacked resting place for the Nth impaled receipt, piling up from the base. */

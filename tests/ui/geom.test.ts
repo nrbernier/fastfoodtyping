@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clockHandAngle, starburstPoints } from '../../src/ui/geom';
+import { clockHandAngle, starburstPoints, wrapOrder } from '../../src/ui/geom';
 
 describe('starburstPoints', () => {
   it('produces two points per spike (outer + inner)', () => {
@@ -32,3 +32,23 @@ describe('clockHandAngle', () => {
   });
 });
 
+
+describe('wrapOrder', () => {
+  const fitsChars = (n: number) => (line: string) => line.length <= n;
+
+  it('keeps a short order on one line', () => {
+    expect(wrapOrder('apple pie', fitsChars(20))).toEqual([[0, 9]]);
+  });
+
+  it('breaks at spaces, leaving each breaking space on its line', () => {
+    const text = 'soufflé de zèbre hanté';
+    const lines = wrapOrder(text, fitsChars(12));
+    expect(lines.map(([a, b]) => text.slice(a, b))).toEqual(['soufflé de ', 'zèbre hanté']);
+    expect(lines[0][0]).toBe(0);
+    expect(lines.at(-1)![1]).toBe(text.length);
+  });
+
+  it('never splits inside a word, even one too long to fit', () => {
+    expect(wrapOrder('taxidermied pie', fitsChars(5)).length).toBe(2);
+  });
+});

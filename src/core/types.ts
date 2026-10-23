@@ -18,6 +18,8 @@ export interface Order {
   fingers?: number;
   /** House order: capitals and punctuation must be typed exactly as written. */
   exact?: boolean;
+  /** Menu language, when not English */
+  lang?: 'fr';
 }
 
 export interface CustomerState {

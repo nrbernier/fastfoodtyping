@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { PACE_ORDER, PACES, type Pace } from '../../core/difficulty';
+import { LANG_LABELS, type Lang } from '../../core/lang';
 import { SHIFTS } from '../../core/shifts';
 import { formatMoney } from '../../core/money';
 import { SaveStore, safeLocalStorage } from '../../persistence/storage';
@@ -40,7 +41,7 @@ export class ShiftSelectScene extends Phaser.Scene {
 
     SHIFTS.forEach((shift, i) => {
       const unlocked = i <= save.unlockedShift;
-      const y = height * 0.26 + i * Math.min(72, height * 0.105);
+      const y = height * 0.25 + i * Math.min(70, height * 0.1);
       makeButton(this, width / 2, y, shift.name, () => this.scene.start('game', { config: shift }), unlocked);
       if (!unlocked) {
         this.add
@@ -77,6 +78,21 @@ export class ShiftSelectScene extends Phaser.Scene {
     paceText.on('pointerdown', () => {
       const next = PACE_ORDER[(PACE_ORDER.indexOf(store.settings().pace) + 1) % PACE_ORDER.length];
       paceText.setText(paceLabel(store.updateSettings({ pace: next }).pace));
+    });
+
+    // Language of the orders: tap to switch.
+    const langLabel = (l: Lang) => `Orders in: < ${LANG_LABELS[l]} >`;
+    const langText = this.add
+      .text(width / 2, height * 0.755, langLabel(store.settings().lang), {
+        fontFamily: FONTS.mono,
+        fontSize: '17px',
+        color: COLORS.cream,
+      })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+    langText.on('pointerdown', () => {
+      const next: Lang = store.settings().lang === 'en' ? 'fr' : 'en';
+      langText.setText(langLabel(store.updateSettings({ lang: next }).lang));
     });
 
     // House orders (capitals and punctuation, from Wednesday on) can be switched off.
