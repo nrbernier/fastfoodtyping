@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { COLORS, FONTS } from './palette';
-import { starburstPoints } from './geom';
+import { starburstPoints, wrapOrder } from './geom';
 
 export { COLORS, FONTS };
 
@@ -106,44 +106,62 @@ export interface LiveTicket {
   setBaseScale(s: number): void;
 }
 
-/** Order ticket whose text shows typed (green) vs remaining (ink) with a caret. */
+/** Order ticket whose text shows typed (green) vs remaining (ink) with a caret; long orders wrap. */
 export function makeLiveTicket(
   scene: Phaser.Scene,
   x: number,
   y: number,
   text: string,
-  maxWidth = 280,
+  maxWidth = 230,
   hiddenChars = 0,
 ): LiveTicket {
   const style = { fontFamily: FONTS.mono, fontSize: '22px', align: 'center' as const };
-  const typed = scene.add.text(0, 0, '', { ...style, color: COLORS.green }).setOrigin(0, 0.5);
-  const caret = scene.add.text(0, 0, '_', { ...style, color: COLORS.red }).setOrigin(0, 0.5);
-  const rest = scene.add.text(0, 0, text, { ...style, color: COLORS.dark }).setOrigin(0, 0.5);
-
+  const probe = scene.add.text(0, 0, '', style);
+  const ranges = wrapOrder(text, (line) => probe.setText(line).width + 28 <= maxWidth);
   // Size the paper for the fully revealed order, which can be wider than its
   // hidden form ("? pancakes" -> "three pancakes").
-  const w = Math.min(maxWidth, rest.width + 28);
-  const h = rest.height + 16;
+  const widest = Math.max(...ranges.map(([a, b]) => probe.setText(text.slice(a, b).trimEnd()).width));
+  const lineH = probe.setText('Mg').height;
+  probe.destroy();
+
+  const lines = ranges.map(([start, end], i) => {
+    const ly = (i - (ranges.length - 1) / 2) * lineH;
+    return {
+      start,
+      end,
+      typed: scene.add.text(0, ly, '', { ...style, color: COLORS.green }).setOrigin(0, 0.5),
+      caret: scene.add.text(0, ly, '_', { ...style, color: COLORS.red }).setOrigin(0, 0.5),
+      rest: scene.add.text(0, ly, '', { ...style, color: COLORS.dark }).setOrigin(0, 0.5),
+    };
+  });
+
+  const w = widest + 28;
+  const h = lineH * lines.length + 16;
   const shadow = scene.add.rectangle(3, 3, w, h, COLORS.darkHex, 0.35).setOrigin(0.5);
   const tail = scene.add.triangle(0, h / 2 + 4, 0, 0, 14, 0, 7, 9, COLORS.darkHex).setOrigin(0.5, 0);
   const paper = scene.add.rectangle(0, 0, w, h, COLORS.creamHex).setStrokeStyle(2, COLORS.darkHex).setOrigin(0.5);
-  const textGroup = scene.add.container(0, 0, [typed, caret, rest]);
+  const textGroup = scene.add.container(0, 0, lines.flatMap((l) => [l.typed, l.caret, l.rest]));
   const container = scene.add.container(x, y, [shadow, tail, paper, textGroup]);
   let baseScale = 1;
 
   function update(typedCount: number) {
-    const done = text.slice(0, typedCount);
-    // The first `hiddenChars` stay a single "?" until the player has typed past them.
-    const remaining = typedCount < hiddenChars ? `?${text.slice(hiddenChars)}` : text.slice(typedCount);
-    typed.setText(done);
-    rest.setText(remaining);
-    caret.setVisible(typedCount < text.length); // no trailing caret once finished
-    const caretW = caret.visible ? caret.width : 0;
-    const total = typed.width + caretW + rest.width;
-    const startX = -total / 2;
-    typed.setX(startX);
-    caret.setX(startX + typed.width);
-    rest.setX(startX + typed.width + caretW);
+    for (const line of lines) {
+      const local = Math.max(0, Math.min(typedCount, line.end) - line.start);
+      const done = text.slice(line.start, line.start + local);
+      let remaining = text.slice(line.start + local, line.end).trimEnd();
+      // The first `hiddenChars` stay a single "?" until the player has typed past them.
+      if (line.start === 0 && typedCount < hiddenChars) remaining = `?${text.slice(hiddenChars, line.end).trimEnd()}`;
+      line.typed.setText(done);
+      line.rest.setText(remaining);
+      // The caret sits on the line holding the next character to type.
+      line.caret.setVisible(typedCount < text.length && typedCount >= line.start && typedCount < line.end);
+      const caretW = line.caret.visible ? line.caret.width : 0;
+      const total = line.typed.width + caretW + line.rest.width;
+      const startX = -total / 2;
+      line.typed.setX(startX);
+      line.caret.setX(startX + line.typed.width);
+      line.rest.setX(startX + line.typed.width + caretW);
+    }
     if (typedCount > 0) {
       scene.tweens.add({
         targets: textGroup, scaleX: 1.06, scaleY: 1.06, duration: 60, yoyo: true,

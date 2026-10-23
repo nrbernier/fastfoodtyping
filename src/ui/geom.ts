@@ -22,3 +22,23 @@ export function clockHandAngle(elapsedMs: number, periodMs: number): number {
   return -90 + frac * 360;
 }
 
+/**
+ * Split an order into ticket lines no wider than `fits` allows, breaking only
+ * at spaces. Each line is [start, end) into the text; a breaking space stays
+ * at the end of its line so every character belongs to exactly one line.
+ */
+export function wrapOrder(text: string, fits: (line: string) => boolean): Array<[number, number]> {
+  const lines: Array<[number, number]> = [];
+  let start = 0;
+  let lastBreak = -1;
+  for (let i = 0; i <= text.length; i++) {
+    if (i < text.length && text[i] !== ' ') continue;
+    if (!fits(text.slice(start, i)) && lastBreak > start) {
+      lines.push([start, lastBreak + 1]);
+      start = lastBreak + 1;
+    }
+    lastBreak = i;
+  }
+  lines.push([start, text.length]);
+  return lines;
+}

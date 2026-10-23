@@ -45,3 +45,20 @@ describe('servingFor', () => {
     }
   });
 });
+
+describe('servingFor in French', () => {
+  const fr = (text: string, tier: 1 | 2 | 3 = 2) => servingFor({ text, tier, exact: false, lang: 'fr' });
+
+  it('reads the dish from the first word that names one', () => {
+    expect(fr('tarte aux pommes')).toEqual({ kind: 'dish', dish: 'pie' });
+    expect(fr('jus de pomme')).toEqual({ kind: 'dish', dish: 'soda' });
+    expect(fr('steak frites')).toEqual({ kind: 'dish', dish: 'fries' });
+    expect(fr('café liégeois')).toEqual({ kind: 'dish', dish: 'sundae' });
+    expect(fr('boudin noir')).toEqual({ kind: 'dish', dish: 'dinner' });
+  });
+
+  it('colours the cloche smoke from the agreed adjective', () => {
+    expect(fr('gaufres de zèbre hantées', 3)).toEqual({ kind: 'mystery', smoke: 'purple' });
+    expect(fr('soupe de navet glacée', 3)).toEqual({ kind: 'mystery', smoke: 'blue' });
+  });
+});
