@@ -30,3 +30,14 @@ const game = new Phaser.Game({
 
 // Dev-only handle so browser scripts can jump straight to a scene.
 if (import.meta.env.DEV) (window as unknown as { __game: Phaser.Game }).__game = game;
+
+// Branch previews wear a ribbon so they are never mistaken for the real game.
+const previewBranch: string | undefined = import.meta.env.VITE_PREVIEW_BRANCH;
+if (previewBranch) {
+  const ribbon = document.createElement('div');
+  ribbon.textContent = `PREVIEW · ${previewBranch}`;
+  ribbon.style.cssText =
+    'position:fixed;left:50%;bottom:0;transform:translateX(-50%);z-index:10;pointer-events:none;' +
+    'background:#26221e;color:#e3a51c;font:600 11px/1 sans-serif;padding:4px 10px;border-radius:6px 6px 0 0;opacity:.85';
+  document.body.appendChild(ribbon);
+}
