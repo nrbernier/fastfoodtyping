@@ -1,5 +1,9 @@
 name: Deploy to GitHub Pages
 
+# Publishes main at the site root and every unmerged branch at
+# preview/<branch>/ (see tools/build-site.sh). Pushes to other branches
+# re-run this through preview.yml, since Pages only deploys from main.
+
 on:
   push:
     branches: [main]
@@ -19,13 +23,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # every branch, so unmerged ones can be built as previews
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
       - run: npm ci
       - run: npm test
-      - run: npm run build
+      - run: tools/build-site.sh
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

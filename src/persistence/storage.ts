@@ -29,7 +29,10 @@ export const DEFAULT_SETTINGS: Settings = { fancyOrders: true, pace: 'steady', l
 
 export type StorageBacking = Pick<Storage, 'getItem' | 'setItem'>;
 
-const KEY = 'short-order-hero-save';
+const MAIN_KEY = 'short-order-hero-save';
+/** A branch preview keeps its own save (seeded from the main game's) so testing never touches real progress. */
+const PREVIEW_BRANCH: string | undefined = import.meta.env?.VITE_PREVIEW_BRANCH;
+const KEY = PREVIEW_BRANCH ? `${MAIN_KEY}:preview:${PREVIEW_BRANCH}` : MAIN_KEY;
 const DEFAULTS: SaveData = { version: 1, unlockedShift: 0, highScores: {} };
 
 /** Type guard that verifies parsed JSON actually has the shape of SaveData. */
@@ -67,7 +70,7 @@ export class SaveStore {
     if (!this.loaded) {
       this.loaded = true;
       try {
-        const raw = this.backing?.getItem(KEY);
+        const raw = this.backing?.getItem(KEY) ?? (KEY !== MAIN_KEY ? this.backing?.getItem(MAIN_KEY) : null);
         if (raw) {
           const parsed = JSON.parse(raw) as unknown;
           if (isValidSaveData(parsed)) this.memory = parsed;
