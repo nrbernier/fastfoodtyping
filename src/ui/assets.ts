@@ -14,6 +14,8 @@ export const PLACEHOLDER_KEY = 'char-placeholder';
 
 /** Regulars at the title-screen counter, left to right. */
 export const TITLE_LINEUP = ['s-07-056', 's-25-272'];
+/** On wide screens Dolores and Giggling Gordon join them, one at each end. */
+export const TITLE_LINEUP_WIDE = ['s-29-313', ...TITLE_LINEUP, 's-30-337'];
 
 /** Share of orders brought by a pose of the matching tier; the rest come from a neighbouring tier. */
 export const MATCH_SHARE = 0.75;

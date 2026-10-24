@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { mulberry32 } from '../../src/core/rng';
-import { CHARACTERS, pickPose, TITLE_LINEUP } from '../../src/ui/assets';
+import { CHARACTERS, pickPose, TITLE_LINEUP, TITLE_LINEUP_WIDE } from '../../src/ui/assets';
 import { POSES } from '../../src/ui/cast';
 
 const publicDir = fileURLToPath(new URL('../../public', import.meta.url));
@@ -28,8 +28,9 @@ describe('character manifest', () => {
     expect(counts).toEqual([1, 2, 3, 4, 5]);
   });
 
-  it('title lineup only uses poses in the cast', () => {
-    for (const key of TITLE_LINEUP) expect(byKey.has(key), key).toBe(true);
+  it('title lineup only uses regulars from the cast', () => {
+    for (const key of TITLE_LINEUP_WIDE) expect(byKey.get(key)?.tier, key).toBe(1);
+    for (const key of TITLE_LINEUP) expect(TITLE_LINEUP_WIDE).toContain(key);
   });
 });
 

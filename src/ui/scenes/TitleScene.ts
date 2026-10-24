@@ -5,7 +5,7 @@ import { SaveStore, safeLocalStorage } from '../../persistence/storage';
 import { UNLOCK_ALL } from '../preview';
 import { COLORS, FONTS, makeButton, makeStarburst } from '../theme';
 import { applyPaperGrain } from '../texture';
-import { PLACEHOLDER_KEY, TITLE_LINEUP } from '../assets';
+import { PLACEHOLDER_KEY, TITLE_LINEUP, TITLE_LINEUP_WIDE } from '../assets';
 
 export class TitleScene extends Phaser.Scene {
   constructor() {
@@ -24,9 +24,10 @@ export class TitleScene extends Phaser.Scene {
     // a couple of regulars at the counter, head and shoulders, bobbing gently
     // sized to the space between the last button and the floor
     const lineupH = Phaser.Math.Clamp(height - 64 - (height * 0.575 + 34), 90, 200);
-    TITLE_LINEUP.forEach((pose, i) => {
+    const lineup = width >= 700 ? TITLE_LINEUP_WIDE : TITLE_LINEUP;
+    lineup.forEach((pose, i) => {
       const key = this.textures.exists(pose) ? pose : PLACEHOLDER_KEY;
-      const x = width / 2 + (i - (TITLE_LINEUP.length - 1) / 2) * Math.min(170, width * 0.38);
+      const x = width / 2 + (i - (lineup.length - 1) / 2) * Math.min(190, width * 0.38);
       const img = this.add.image(x, height - 60, key).setOrigin(0.5, 1);
       img.setScale(lineupH / img.height);
       this.tweens.add({
