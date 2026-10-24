@@ -6,6 +6,39 @@ import { COLORS, FONTS, makeLiveTicket, makeStarburst, type LiveTicket } from '.
 import { fitPose, SPRITE_HEIGHT } from './headFit';
 
 const TICKET_GAP = 30;
+
+/** Speech balloons on screen, per scene, so a new one can move clear of them. */
+const VIEWS = new WeakMap<Phaser.Scene, Set<CustomerView>>();
+/** Each new balloon tucks just behind the ones already up, so their words stay whole. */
+let balloonCount = 0;
+const LIVE_BALLOONS = new WeakMap<Phaser.Scene, Set<{ x: number; y: number; hw: number; hh: number }>>();
+
+/**
+ * Head centre and half-width in each pose's image, from the run of figure
+ * pixels at eye level nearest the image centre (at that height the row is
+ * mostly head, where lower down it can catch arms and props).
+ */
+const MOUTH_X = new Map<string, { x: number; half: number }>();
+function mouthX(scene: Phaser.Scene, key: string, rowY: number, headH: number): { x: number; half: number } {
+  const cached = MOUTH_X.get(key);
+  if (cached !== undefined) return cached;
+  const w = scene.textures.get(key).getSourceImage().width;
+  const runs: { start: number; len: number }[] = [];
+  let start = -1;
+  for (let x = 0; x <= w; x++) {
+    const solid = x < w && scene.textures.getPixelAlpha(x, Math.round(rowY), key) > 128;
+    if (solid && start < 0) start = x;
+    if (!solid && start >= 0) {
+      if (x - start > 6) runs.push({ start, len: x - start });
+      start = -1;
+    }
+  }
+  const best = runs.sort((a, b) => Math.abs(a.start + a.len / 2 - w / 2) - Math.abs(b.start + b.len / 2 - w / 2))[0];
+  const half = Math.min(best ? best.len / 2 : headH * 0.4, headH * 0.5);
+  const found = best ? { x: best.start + best.len / 2, half } : { x: w / 2, half };
+  MOUTH_X.set(key, found);
+  return found;
+}
 // The customer sprite may shrink to uiScale 0.5 on a phone, but the order
 // bubble must stay readable, so the ticket scales on its own higher floor.
 const MIN_TICKET_SCALE = 0.78;
@@ -36,6 +69,8 @@ export class CustomerView extends Phaser.GameObjects.Container {
   private barY = -(SPRITE_HEIGHT + 12);
   /** Local y of the top of the head, for speech bubbles and hearts. */
   private headY = -SPRITE_HEIGHT;
+  /** Mouth in the container's unscaled coordinates, relative to its origin. */
+  private mouth = { x: 0, y: -SPRITE_HEIGHT * 0.6, half: 30 };
   /** Fades a served order's ticket ahead of the customer, so it never covers a newcomer's. */
   private ticketFade = { alpha: 1 };
 
@@ -67,6 +102,16 @@ export class CustomerView extends Phaser.GameObjects.Container {
     // Patience bar just above the figure, but never higher than for a full-height pose.
     this.barY = Math.max(fit.top, -SPRITE_HEIGHT) - 12;
     this.headY = fit.bottom - (this.sprite.height - (HEADS[pose.key]?.[0] ?? 0)) * fit.scale;
+    const head = key === pose.key ? HEADS[pose.key] : undefined;
+    if (head) {
+      const row = head[0] + (head[1] - head[0]) * 0.72;
+      const m = mouthX(scene, key, head[0] + (head[1] - head[0]) * 0.4, head[1] - head[0]);
+      this.mouth = {
+        x: (m.x - this.sprite.width / 2) * fit.scale,
+        y: fit.bottom - (this.sprite.height - row) * fit.scale,
+        half: m.half * fit.scale,
+      };
+    }
 
     // The order ticket is NOT a child of this container: it lives at scene level
     // on a high depth so the order you're typing is never hidden behind the
@@ -78,6 +123,9 @@ export class CustomerView extends Phaser.GameObjects.Container {
     this.bar = scene.add.graphics();
     this.add([this.bar, this.sprite]);
     scene.add.existing(this);
+    const views = VIEWS.get(scene) ?? new Set();
+    VIEWS.set(scene, views);
+    views.add(this);
 
     // The whole customer (sprite + bar) shrinks with the viewport via container
     // scale; the detached ticket is scaled to match.
@@ -220,66 +268,141 @@ export class CustomerView extends Phaser.GameObjects.Container {
     const scene = this.scene;
     if (!scene) return;
     const ts = this.ticketScale();
+    const sc = ts * 0.92;
     const shout = color === COLORS.red;
-    // Softer than the order tickets, so the orders stay what the eye goes to.
+    // Quieter than the order tickets (softer ink, warmer paper), so the orders
+    // stay what the eye goes to, but solid so the words read cleanly.
     const label = scene.add.text(0, 0, phrase.toUpperCase(), {
       fontFamily: FONTS.sans, fontSize: '15px', fontStyle: 'bold', color: shout ? '#a8473a' : '#5a5248', align: 'center',
       wordWrap: { width: 170 }, lineSpacing: -2,
     }).setOrigin(0.5);
     const rx = label.width / 2 + 18;
     const ry = label.height / 2 + 12;
-    const g = scene.add.graphics();
-    const ink = 0x6f6556;
-    const paper = 0xf4ecdc;
-    // the tail: a curved wedge from the balloon's underside down and to the left
-    const tail = (grow: number) => {
-      const pts: Phaser.Math.Vector2[] = [];
-      const base = ry * 0.85;
-      for (let i = 0; i <= 10; i++) { // left edge, curving
-        const t = i / 10;
-        pts.push(new Phaser.Math.Vector2(-rx * 0.15 - t * rx * 0.35 + grow, base + t * (ry * 0.9 + 6) + grow));
+    const k = shout ? 1.22 : 1;
+    const hw = rx * k * sc;
+    const hh = ry * k * sc;
+
+    // Beside the head at mouth height, on the outer side when it fits, then
+    // stacked upward clear of any balloon already up.
+    let live = LIVE_BALLOONS.get(scene);
+    if (!live) {
+      live = new Set();
+      LIVE_BALLOONS.set(scene, live);
+      scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => LIVE_BALLOONS.delete(scene));
+    }
+    const balloons = live;
+    const u = this.uiScale;
+    const W = scene.scale.width;
+    const mx = this.x + this.mouth.x * u;
+    const my = this.y + this.mouth.y * u;
+    const reach = this.mouth.half * u + 16 * sc + hw;
+    const outer = mx < W / 2 ? -1 : 1;
+    const minY = 58 + hh;
+    // Try spots beside the head (outer side first), stepping up, and take the
+    // first that covers no ticket and no other balloon; failing that, the one
+    // that covers least.
+    const obstacles = [
+      ...balloons,
+      ...[...(VIEWS.get(scene) ?? [])].filter((v) => v.ticket.container.visible).map((v) => {
+        const b = v.ticket.container.getBounds();
+        return { x: b.centerX, y: b.centerY, hw: b.width / 2, hh: b.height / 2 };
+      }),
+    ];
+    // Faces matter less than tickets, but a balloon shouldn't sit on one.
+    const faces = [...(VIEWS.get(scene) ?? [])].map((v) => {
+      const half = v.mouth.half * v.uiScale;
+      return { x: v.x + v.mouth.x * v.uiScale, y: v.y + v.mouth.y * v.uiScale - half * 0.5, hw: half, hh: half * 1.2, weight: 0.5 };
+    });
+    const all: { x: number; y: number; hw: number; hh: number; weight?: number }[] = [...obstacles, ...faces];
+    const overlap = (cx: number, cy: number) => all.reduce((sum, o) => {
+      const ox = Math.max(0, Math.min(cx + hw, o.x + o.hw) - Math.max(cx - hw, o.x - o.hw));
+      const oy = Math.max(0, Math.min(cy + hh, o.y + o.hh) - Math.max(cy - hh, o.y - o.hh));
+      return sum + ox * oy * (o.weight ?? 1);
+    }, 0);
+    let best = { x: 0, y: 0, side: outer, cost: Infinity };
+    for (const side of [outer, -outer]) {
+      const cx = Phaser.Math.Clamp(mx + side * reach, hw + 4, W - hw - 4);
+      // pushed into the head by the screen edge: a poor spot
+      const squeezed = Math.abs(cx - (mx + side * reach)) > hw * 0.5 ? hw * hh : 0;
+      for (let step = 0; step < 6; step++) {
+        const cy = Math.max(minY, my - hh * 0.7 - step * hh * 1.1);
+        // Rising is cheap; crossing to the far side stretches the tail.
+        const cost = overlap(cx, cy) + squeezed + step * hw * 2 + (side === outer ? 0 : hw * hh * 0.6);
+        if (cost < best.cost) best = { x: cx, y: cy, side, cost };
       }
-      for (let i = 10; i >= 0; i--) { // right edge back up
-        const t = i / 10;
-        pts.push(new Phaser.Math.Vector2(rx * 0.12 - t * rx * 0.47 - grow, base + t * (ry * 0.9 + 6) - (1 - t) * 4 + grow));
+    }
+    const { x, y, side } = best;
+    const slot = { x, y, hw, hh };
+    balloons.add(slot);
+
+    // A short curved tail from the balloon's near edge, ending just short of the mouth.
+    const tip = { x: (mx - side * (this.mouth.half * u + 3) - x) / sc, y: (my - y) / sc };
+    const ang = Math.atan2(tip.y, tip.x);
+    const base = { x: Math.cos(ang) * rx * k * 0.8, y: Math.sin(ang) * ry * k * 0.8 };
+    const ctrl = { x: (base.x + tip.x) / 2, y: (base.y + tip.y) / 2 + 10 };
+    const curve = new Phaser.Curves.QuadraticBezier(
+      new Phaser.Math.Vector2(base.x, base.y), new Phaser.Math.Vector2(ctrl.x, ctrl.y), new Phaser.Math.Vector2(tip.x, tip.y),
+    );
+    const tail = (grow: number, upto = 1) => {
+      const left: Phaser.Math.Vector2[] = [];
+      const right: Phaser.Math.Vector2[] = [];
+      const n = 16;
+      for (let i = 0; i <= n; i++) {
+        const t = (i / n) * upto;
+        const p = curve.getPoint(t);
+        const d = curve.getTangent(t);
+        const half = 9 * (1 - t) + grow;
+        left.push(new Phaser.Math.Vector2(p.x - d.y * half, p.y + d.x * half));
+        right.push(new Phaser.Math.Vector2(p.x + d.y * half, p.y - d.x * half));
       }
-      return pts;
+      // a pointed tip, pushed out by the outline width
+      const end = curve.getTangent(1);
+      if (upto === 1) left.push(new Phaser.Math.Vector2(tip.x + end.x * grow, tip.y + end.y * grow));
+      return [...left, ...right.reverse()];
     };
-    const outline = (grow: number) => {
-      if (!shout) return null;
+    const burst = (grow: number) => {
       const pts: Phaser.Math.Vector2[] = [];
       const n = 18;
       for (let i = 0; i < n * 2; i++) {
         const a = (i / (n * 2)) * Math.PI * 2;
-        const k = i % 2 ? 1.0 : 1.22;
-        pts.push(new Phaser.Math.Vector2(Math.cos(a) * (rx * k + grow), Math.sin(a) * (ry * k + grow)));
+        const r = i % 2 ? 1.0 : 1.22;
+        pts.push(new Phaser.Math.Vector2(Math.cos(a) * (rx * r + grow), Math.sin(a) * (ry * r + grow)));
       }
       return pts;
     };
-    // shadow, ink outline (drawn 2.5px bigger), then paper
-    g.fillStyle(COLORS.darkHex, 0.12);
-    if (shout) g.fillPoints(outline(0)!.map((p) => p.clone().add({ x: 3, y: 3 } as Phaser.Math.Vector2)), true);
-    else g.fillEllipse(3, 3, rx * 2, ry * 2);
-    g.fillStyle(ink, 1);
-    g.fillPoints(tail(-2.5), true);
-    if (shout) g.fillPoints(outline(2.5)!, true);
-    else g.fillEllipse(0, 0, rx * 2 + 5, ry * 2 + 5);
-    g.fillStyle(shout ? 0xf2e3b8 : paper, 1);
-    g.fillPoints(tail(0), true);
-    if (shout) g.fillPoints(outline(0)!, true);
-    else g.fillEllipse(0, 0, rx * 2, ry * 2);
-    const ticket = this.ticket.container;
-    const top = ticket.y - this.ticketHalf1 * ts;
-    const halfW = rx * (shout ? 1.25 : 1) * ts;
-    const halfH = ry * (shout ? 1.25 : 1) * ts;
-    const x = Phaser.Math.Clamp(ticket.x + rx * 0.3 * ts, halfW + 4, scene.scale.width - halfW - 4);
-    const y = Math.max(58 + halfH, top - (ry * 1.9 + 10) * ts);
-    // Behind every ticket, and a little see-through.
-    const bubble = scene.add.container(x, y, [g, label]).setDepth(this.ticketDepth - 2).setScale(0).setAngle(shout ? -4 : -2).setAlpha(0.88);
-    scene.tweens.add({ targets: bubble, scale: ts * 0.92, duration: 170, ease: 'Back.Out' });
-    if (shout) scene.tweens.add({ targets: bubble, angle: 3, duration: 70, yoyo: true, repeat: 3, delay: 170 });
-    scene.tweens.add({ targets: bubble, alpha: 0, y: bubble.y - 8, delay: hold, duration: 220, onComplete: () => bubble.destroy() });
+    const body = (g: Phaser.GameObjects.Graphics, grow: number) => {
+      if (shout) g.fillPoints(burst(grow), true);
+      else g.fillEllipse(0, 0, rx * 2 + grow * 2, ry * 2 + grow * 2);
+    };
+    const paper = shout ? 0xf0e0b4 : 0xeee4cf;
+    // The tail sits on a layer under every balloon, so no tail crosses
+    // another balloon's words; a paper stub on the balloon hides the seam.
+    const tailG = scene.add.graphics();
+    tailG.fillStyle(0x6f6556, 1).fillPoints(tail(2.5), true);
+    tailG.fillStyle(paper, 1).fillPoints(tail(0), true);
+    const g = scene.add.graphics();
+    g.fillStyle(0x6f6556, 1);
+    body(g, 2.5);
+    g.fillStyle(paper, 1);
+    body(g, 0);
+    g.fillPoints(tail(0, Math.min(0.5, (Math.min(rx, ry) * k * 0.2 + 5) / curve.getLength())), true);
+    // Behind every ticket.
+    balloonCount = (balloonCount + 1) % 1000;
+    const depth = this.ticketDepth - 2 - balloonCount * 0.0005;
+    const tailLayer = scene.add.container(x, y, [tailG]).setDepth(depth - 1).setScale(0);
+    const bubble = scene.add.container(x, y, [g, label]).setDepth(depth).setScale(0);
+    scene.tweens.add({ targets: [bubble, tailLayer], scale: sc, duration: 170, ease: 'Back.Out' });
+    if (shout) scene.tweens.add({ targets: label, angle: 3, duration: 70, yoyo: true, repeat: 3, delay: 170 });
+    scene.tweens.add({
+      targets: [bubble, tailLayer], alpha: 0, delay: hold, duration: 220,
+      onComplete: () => {
+        balloons.delete(slot);
+        bubble.destroy();
+        tailLayer.destroy();
+      },
+    });
   }
+
 
   get isLocked(): boolean {
     return this.locked;
@@ -329,6 +452,7 @@ export class CustomerView extends Phaser.GameObjects.Container {
   }
 
   protected preDestroy() {
+    VIEWS.get(this.scene)?.delete(this);
     this.scene.events.off(Phaser.Scenes.Events.UPDATE, this.positionTicket, this);
     this.scene.tweens.killTweensOf(this.sprite);
     this.scene.tweens.killTweensOf(this.ticket.container);
