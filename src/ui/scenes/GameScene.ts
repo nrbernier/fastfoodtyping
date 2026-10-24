@@ -10,7 +10,7 @@ import type { ShiftConfig } from '../../core/types';
 import { attachPhysicalKeyboard, createHiddenInput, isTouchDevice, type HiddenInput } from '../../input/inputAdapter';
 import { formatMoney } from '../../core/money';
 import { clockLabel } from '../clock';
-import { CustomerView } from '../CustomerView';
+import { CustomerView, MIN_TICKET_SCALE } from '../CustomerView';
 import { pickPose } from '../assets';
 import { Hud } from '../Hud';
 import { Kitchen, type KitchenLayout } from '../Kitchen';
@@ -294,7 +294,7 @@ export class GameScene extends Phaser.Scene {
         DEPTH.ticket,
         DEPTH.ticketActive,
         this.uiScale,
-        bossPose ? 0 : this.staggerFor(customer.slot),
+        bossPose ? {} : this.ticketLayoutFor(customer.id),
         bossPose ? 1.35 : 1,
       );
       view.setDepth(DEPTH.customer);
@@ -527,9 +527,14 @@ export class GameScene extends Phaser.Scene {
     return (((id * 53) % 39) - 19) * this.uiScale;
   }
 
-  /** Lift odd seats' tickets so neighbouring (long) tickets don't overlap. */
-  private staggerFor(slot: number): number {
-    return (slot % 2) * -72;
+  /**
+   * Tickets share one row, centred on their seat (not the customer's nudge),
+   * and wrap to the seat's width so neighbours never collide.
+   */
+  private ticketLayoutFor(id: number): { maxWidth: number; dx: number } {
+    const seat = (this.scale.width * 0.8) / this.maxSlots;
+    const ts = Math.max(this.uiScale, MIN_TICKET_SCALE);
+    return { maxWidth: Math.min(230, seat / ts - 10), dx: -this.jitterFor(id) / this.uiScale };
   }
 
   /** Stacked resting place for the Nth impaled receipt, piling up from the base. */
