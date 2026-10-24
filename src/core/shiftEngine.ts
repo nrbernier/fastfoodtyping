@@ -23,6 +23,8 @@ export interface ShiftEngineOptions {
   vocabulary?: Vocabulary;
 }
 
+/** How long a seat stays empty after its customer is done, while they eat, cheer and leave. */
+export const SEAT_REST_MS = 4500;
 const FIRST_SPAWN_MS = 800;
 const MAX_STRIKES = 3;
 /** Orders served in one drink rush. */
@@ -52,6 +54,9 @@ export class ShiftEngine {
   private customers: CustomerState[] = [];
   private nextId = 1;
   private elapsed = 0;
+  /** When each seat last had someone in it, so a newcomer never lands on a customer still eating or leaving. */
+  private seatLastBusy = new Map<number, number>();
+  private seatReleased = new Set<number>();
   private spawnAt = FIRST_SPAWN_MS;
   private over = false;
   private correctChars = 0;
@@ -151,8 +156,15 @@ export class ShiftEngine {
     // During a rush every free seat fills fast; otherwise the shift's pacing.
     const seats = this.rushLeft > 0 ? this.cap : Math.min(params.maxCustomers, this.cap);
     const spawnOk = !bossDef || this.customers.some((c) => c.special === 'boss');
-    if (!timeUp && spawnOk && this.elapsed >= this.spawnAt && this.activeCustomers.length < seats) {
-      this.spawn(params);
+    // A seat counts as busy up to the first tick after its customer is done.
+    for (const c of this.customers) {
+      if (this.seatReleased.has(c.id)) continue;
+      this.seatLastBusy.set(c.slot, this.elapsed);
+      if (c.resolved) this.seatReleased.add(c.id);
+    }
+    const seat = this.pickSeat();
+    if (!timeUp && spawnOk && seat !== undefined && this.elapsed >= this.spawnAt && this.activeCustomers.length < seats) {
+      this.spawn(params, seat);
       this.spawnAt = this.elapsed + (this.rushLeft > 0 ? RUSH_SPAWN_MS : params.spawnIntervalMs);
     }
 
@@ -395,7 +407,24 @@ export class ShiftEngine {
     c.eatingMs = 900;
   }
 
-  private spawn(params: LiveParams): void {
+  /**
+   * A random free seat (not always the leftmost, so a lone customer isn't
+   * always parked at the same one) that has stood empty for SEAT_REST_MS: the
+   * last customer there is still eating, cheering or walking off for a few
+   * seconds after their seat frees up. None ready means the next customer
+   * waits a moment.
+   */
+  private pickSeat(): number | undefined {
+    const used = new Set(this.activeCustomers.map((c) => c.slot));
+    const ready = [];
+    for (let s = 0; s < this.cap; s++) {
+      const last = this.seatLastBusy.get(s);
+      if (!used.has(s) && (last === undefined || this.elapsed - last >= SEAT_REST_MS)) ready.push(s);
+    }
+    return ready.length ? ready[Math.floor(this.rng() * ready.length)] : undefined;
+  }
+
+  private spawn(params: LiveParams, slot: number): void {
     const usedLetters = this.usedFirstLetters();
     const orderParams = this.houseOrders ? params.order : { ...params.order, houseChance: 0 };
     const rush = this.rushLeft > 0;
@@ -403,14 +432,6 @@ export class ShiftEngine {
       ? this.generator.nextFrom(this.generator.vocabulary.rushDrinks, 1, usedLetters)
       : this.generator.next(orderParams, usedLetters);
     if (rush) this.rushLeft -= 1;
-    // Pick a random free slot (not always the leftmost) so a lone customer
-    // isn't always parked at the same seat.
-    const usedSlots = new Set(this.activeCustomers.map((c) => c.slot));
-    const freeSlots = [];
-    for (let s = 0; s < this.cap; s++) if (!usedSlots.has(s)) freeSlots.push(s);
-    const slot = freeSlots.length > 0
-      ? freeSlots[Math.floor(this.rng() * freeSlots.length)]
-      : this.customers.length; // fallback: never reached while active < cap
     const patience = orderPatienceMs(params.patienceMs, order.normalized.length, this.pace);
     const customer: CustomerState = {
       id: this.nextId++,

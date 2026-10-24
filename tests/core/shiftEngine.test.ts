@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ShiftEngine } from '../../src/core/shiftEngine';
+import { SEAT_REST_MS, ShiftEngine } from '../../src/core/shiftEngine';
 import { mulberry32 } from '../../src/core/rng';
 import type { ShiftConfig, ShiftResult } from '../../src/core/types';
 import { BOSSES } from '../../src/core/shifts';
@@ -205,6 +205,37 @@ describe('ShiftEngine', () => {
     expect(served.length).toBeGreaterThanOrEqual(2);
   });
 
+  it('never seats a newcomer where a customer has only just finished', () => {
+    const engine = makeEngine({
+      durationMs: 60_000, maxCustomers: { start: 4, end: 4 }, patienceMs: { start: 60_000, end: 60_000 },
+      spawnIntervalMs: { start: 200, end: 200 },
+    });
+    const servedAt = new Map<number, number>(); // seat -> time its customer was served
+    const seen = new Set<number>();
+    let t = 0;
+    let newcomers = 0;
+    for (let i = 0; i < 300; i++) {
+      for (const c of engine.activeCustomers) {
+        if (seen.has(c.id)) continue;
+        seen.add(c.id);
+        const served = servedAt.get(c.slot);
+        if (served !== undefined) {
+          newcomers++;
+          expect(t - served).toBeGreaterThanOrEqual(SEAT_REST_MS);
+        }
+      }
+      // serve someone every half second
+      const c = engine.activeCustomers[0];
+      if (i % 5 === 0 && c) {
+        typeOrder(engine, c.order.normalized);
+        servedAt.set(c.slot, t);
+      }
+      step(engine, 100);
+      t += 100;
+    }
+    expect(newcomers).toBeGreaterThan(5);
+  });
+
   it('a drink rush fills every seat with short drinks and pays a bonus when cleared', () => {
     const engine = makeEngine({
       durationMs: 60_000, patienceMs: { start: 60_000, end: 60_000 }, spawnIntervalMs: { start: 30_000, end: 30_000 },
@@ -216,7 +247,8 @@ describe('ShiftEngine', () => {
     engine.events.on('rushEnded', (e) => (ended = e));
     step(engine, 1000);
     for (const c of [...engine.activeCustomers]) typeOrder(engine, c.order.normalized);
-    step(engine, 3000);
+    // the just-served seat rests while its customer eats and leaves
+    step(engine, SEAT_REST_MS + 1000);
     expect(started).toBeGreaterThan(0);
     expect(engine.activeCustomers.length).toBe(4); // every seat
     expect(engine.activeCustomers.every((c) => c.special === 'rush')).toBe(true);
