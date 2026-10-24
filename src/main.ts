@@ -5,6 +5,7 @@ import { ShiftSelectScene } from './ui/scenes/ShiftSelectScene';
 import { GameScene } from './ui/scenes/GameScene';
 import { ResultsScene } from './ui/scenes/ResultsScene';
 import { ScrapbookScene } from './ui/scenes/ScrapbookScene';
+import { TestLabScene } from './ui/scenes/TestLabScene';
 
 // Keep the canvas exactly the size of the *visual* viewport so the mobile
 // keyboard never covers gameplay (interactive-widget=resizes-content helps,
@@ -25,7 +26,7 @@ const game = new Phaser.Game({
     mode: Phaser.Scale.RESIZE,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
-  scene: [BootScene, TitleScene, ShiftSelectScene, GameScene, ResultsScene, ScrapbookScene],
+  scene: [BootScene, TitleScene, ShiftSelectScene, GameScene, ResultsScene, ScrapbookScene, TestLabScene],
 });
 
 // Dev-only handle so browser scripts can jump straight to a scene.

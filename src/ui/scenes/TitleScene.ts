@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { OVERTIME, SHIFTS } from '../../core/shifts';
 import { formatMoney } from '../../core/money';
 import { SaveStore, safeLocalStorage } from '../../persistence/storage';
-import { UNLOCK_ALL } from '../preview';
+import { PREVIEW_BRANCH, UNLOCK_ALL } from '../preview';
 import { COLORS, FONTS, makeButton, makeStarburst } from '../theme';
 import { applyPaperGrain } from '../texture';
 import { PLACEHOLDER_KEY, TITLE_LINEUP, TITLE_LINEUP_WIDE } from '../assets';
@@ -61,6 +61,10 @@ export class TitleScene extends Phaser.Scene {
     );
 
     makeButton(this, width / 2, height * 0.575, 'SCRAPBOOK', () => this.scene.start('scrapbook'));
+    // Previews get a shortcut to single-feature test shifts.
+    if (PREVIEW_BRANCH) {
+      makeButton(this, 74, 34, 'TEST LAB', () => this.scene.start('testlab'), true, { fontSize: 15, fill: COLORS.redHex });
+    }
 
     const best = save.highScores[OVERTIME.id];
     if (best) {

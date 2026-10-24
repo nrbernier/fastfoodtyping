@@ -24,7 +24,8 @@ const BY_TIER = [1, 2, 3].map((t) => POSES.filter((p) => p.tier === t && !p.fing
 
 /**
  * Choose who walks up with this order. The Finger-Counter brings his special
- * (holding up the matching number of fingers); otherwise the order's tier
+ * (holding up the matching number of fingers) unless he is already seated,
+ * when someone else orders it with the count spelled out; otherwise the order's tier
  * picks the crowd: plain items bring regulars, specials bring characters,
  * weird dishes bring wacky poses. A quarter of the time a neighbouring tier
  * steps in instead, but only toward the ordinary: wacky poses come with weird
@@ -41,7 +42,8 @@ export function pickPose(
 ): PoseDef {
   if (order.fingers) {
     const counter = POSES.find((p) => p.fingers === order.fingers);
-    if (counter) return counter;
+    // Only one of him at a time; anyone else says the number out loud.
+    if (counter && !seated.has(counter.character)) return counter;
   }
   let tier: number = order.tier;
   if (rng() >= MATCH_SHARE) tier = tier === 1 ? 2 : tier === 3 ? 2 : 1;

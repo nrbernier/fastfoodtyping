@@ -41,6 +41,12 @@ describe('pickPose', () => {
     }
   });
 
+  it('sends someone else with a counted order while the Finger-Counter is seated', () => {
+    const pose = pickPose({ tier: 1, fingers: 3 }, new Set(['counter']), mulberry32(3));
+    expect(pose.character).not.toBe('counter');
+    expect(pose.fingers).toBeUndefined();
+  });
+
   it('keeps the Finger-Counter out of ordinary orders', () => {
     const rng = mulberry32(7);
     for (let i = 0; i < 500; i++) {

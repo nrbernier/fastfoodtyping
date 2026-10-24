@@ -37,6 +37,8 @@ export class CustomerView extends Phaser.GameObjects.Container {
   }
   /** Ticket layout: widest it may wrap to (unscaled), and its x offset from the customer. */
   private ticketMaxWidth: number;
+  /** The Finger-Counter hides the count on his ticket: read it off his hand. */
+  private fingersPose: boolean;
   private ticketDx: number;
   private ticketDepth: number;
   private activeTicketDepth: number;
@@ -84,6 +86,7 @@ export class CustomerView extends Phaser.GameObjects.Container {
     // on a high depth so the order you're typing is never hidden behind the
     // counter, props, or HUD. It trails the customer via positionTicket().
     this.ticketMaxWidth = ticketLayout.maxWidth ?? 230;
+    this.fingersPose = Boolean(pose.fingers);
     this.ticketDx = ticketLayout.dx ?? 0;
     this.ticket = this.buildTicket(customer.order);
     this.ticket.container.setScale(0);
@@ -161,7 +164,7 @@ export class CustomerView extends Phaser.GameObjects.Container {
    * shared row don't collide.
    */
   private buildTicket(order: Order): LiveTicket {
-    const hidden = order.fingers ? order.words[0].length : 0;
+    const hidden = order.fingers && this.fingersPose ? order.words[0].length : 0;
     const ticket = makeLiveTicket(this.scene, this.x, this.y, order.text, this.ticketMaxWidth, hidden);
     this.ticketHalf1 = ticket.height / 2;
     this.ticketHalfW1 = ticket.width / 2;
