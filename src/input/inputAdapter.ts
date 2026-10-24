@@ -8,7 +8,9 @@ export function attachPhysicalKeyboard(target: EventTarget, onChar: (c: string) 
     const t = ke.target as Element | null;
     if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
     if (ke.key.length !== 1) return;
-    if (ke.key === ' ') ke.preventDefault(); // avoid page scroll
+    // The game owns typed characters: no page scroll on space, and no
+    // Firefox quick find on ' or /.
+    ke.preventDefault();
     onChar(ke.key);
   };
   target.addEventListener('keydown', handler);

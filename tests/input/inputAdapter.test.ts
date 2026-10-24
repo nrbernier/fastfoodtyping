@@ -12,6 +12,20 @@ describe('attachPhysicalKeyboard', () => {
     expect(chars).toEqual(['a', ' ']);
   });
 
+  it("keeps typed keys from the browser (Firefox quick find on ' and /)", () => {
+    const detach = attachPhysicalKeyboard(window, () => {});
+    const quote = new KeyboardEvent('keydown', { key: "'", cancelable: true });
+    const slash = new KeyboardEvent('keydown', { key: '/', cancelable: true });
+    const copy = new KeyboardEvent('keydown', { key: 'c', ctrlKey: true, cancelable: true });
+    window.dispatchEvent(quote);
+    window.dispatchEvent(slash);
+    window.dispatchEvent(copy);
+    detach();
+    expect(quote.defaultPrevented).toBe(true);
+    expect(slash.defaultPrevented).toBe(true);
+    expect(copy.defaultPrevented).toBe(false);
+  });
+
   it('ignores modifier combos and special keys', () => {
     const chars: string[] = [];
     const detach = attachPhysicalKeyboard(window, (c) => chars.push(c));

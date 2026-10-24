@@ -221,15 +221,16 @@ export class CustomerView extends Phaser.GameObjects.Container {
     if (!scene) return;
     const ts = this.ticketScale();
     const shout = color === COLORS.red;
+    // Softer than the order tickets, so the orders stay what the eye goes to.
     const label = scene.add.text(0, 0, phrase.toUpperCase(), {
-      fontFamily: FONTS.sans, fontSize: '16px', fontStyle: 'bold', color, align: 'center',
+      fontFamily: FONTS.sans, fontSize: '15px', fontStyle: 'bold', color: shout ? '#a8473a' : '#5a5248', align: 'center',
       wordWrap: { width: 170 }, lineSpacing: -2,
     }).setOrigin(0.5);
     const rx = label.width / 2 + 18;
     const ry = label.height / 2 + 12;
     const g = scene.add.graphics();
-    const ink = COLORS.darkHex;
-    const paper = 0xfffaf0;
+    const ink = 0x6f6556;
+    const paper = 0xf4ecdc;
     // the tail: a curved wedge from the balloon's underside down and to the left
     const tail = (grow: number) => {
       const pts: Phaser.Math.Vector2[] = [];
@@ -256,14 +257,14 @@ export class CustomerView extends Phaser.GameObjects.Container {
       return pts;
     };
     // shadow, ink outline (drawn 2.5px bigger), then paper
-    g.fillStyle(ink, 0.25);
+    g.fillStyle(COLORS.darkHex, 0.12);
     if (shout) g.fillPoints(outline(0)!.map((p) => p.clone().add({ x: 3, y: 3 } as Phaser.Math.Vector2)), true);
     else g.fillEllipse(3, 3, rx * 2, ry * 2);
     g.fillStyle(ink, 1);
     g.fillPoints(tail(-2.5), true);
     if (shout) g.fillPoints(outline(2.5)!, true);
     else g.fillEllipse(0, 0, rx * 2 + 5, ry * 2 + 5);
-    g.fillStyle(shout ? 0xfff1c9 : paper, 1);
+    g.fillStyle(shout ? 0xf2e3b8 : paper, 1);
     g.fillPoints(tail(0), true);
     if (shout) g.fillPoints(outline(0)!, true);
     else g.fillEllipse(0, 0, rx * 2, ry * 2);
@@ -273,8 +274,9 @@ export class CustomerView extends Phaser.GameObjects.Container {
     const halfH = ry * (shout ? 1.25 : 1) * ts;
     const x = Phaser.Math.Clamp(ticket.x + rx * 0.3 * ts, halfW + 4, scene.scale.width - halfW - 4);
     const y = Math.max(58 + halfH, top - (ry * 1.9 + 10) * ts);
-    const bubble = scene.add.container(x, y, [g, label]).setDepth(this.ticketDepth + 5).setScale(0).setAngle(shout ? -4 : -2);
-    scene.tweens.add({ targets: bubble, scale: ts, duration: 170, ease: 'Back.Out' });
+    // Behind every ticket, and a little see-through.
+    const bubble = scene.add.container(x, y, [g, label]).setDepth(this.ticketDepth - 2).setScale(0).setAngle(shout ? -4 : -2).setAlpha(0.88);
+    scene.tweens.add({ targets: bubble, scale: ts * 0.92, duration: 170, ease: 'Back.Out' });
     if (shout) scene.tweens.add({ targets: bubble, angle: 3, duration: 70, yoyo: true, repeat: 3, delay: 170 });
     scene.tweens.add({ targets: bubble, alpha: 0, y: bubble.y - 8, delay: hold, duration: 220, onComplete: () => bubble.destroy() });
   }
