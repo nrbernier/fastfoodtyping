@@ -30,7 +30,7 @@ const MENUS_FR: ReadonlyArray<Menu> = [
   { header: 'AUJOURD’HUI • CAFÉ 5¢', rows: [row('BURGER', '25¢'), row('MILKSHAKE', '15¢'), row('TARTE', '10¢'), row('CAFÉ', '5¢')] },
   { header: 'COMPTOIR DU MIDI', rows: [row('CROQUE', '30¢'), row('CLUB', '25¢'), row('DIABOLO', '15¢'), row('SOUPE', '10¢')] },
   { header: 'PLAT DU JOUR', rows: [row('POT-AU-FEU', '40¢'), row('GRATIN', '30¢'), row('BISQUE', '20¢'), row('GELÉE', '15¢')] },
-  { header: 'MENU DE MINUIT', rows: [row('ANGUILLE', '55¢'), row('ALGUE FUMÉE', '45¢'), row('NAVET CONFIT', '30¢'), row('BOUILLIE', '10¢')] },
+  { header: 'CLUB DU SOIR', rows: [row('LE BLT DE MEL', '35¢'), row('TARTE TATIN', '30¢'), row('CROQUE MAMIE', '25¢'), row('CAFÉ, NOIR.', '5¢')] },
   { header: 'PLEINE LUNE ☾', rows: [row('JAMBON HANTÉ', '99¢'), row('POULPE VIF', '80¢'), row('LAIT LUNAIRE', '??'), row('RAGOÛT PENSIF', '??')] },
 ];
 
@@ -38,7 +38,7 @@ const MENUS: ReadonlyArray<Menu> = [
   { header: 'TODAY • 5¢ COFFEE', rows: ['BURGER ....... 25¢', 'SHAKE ........ 15¢', 'PIE .......... 10¢', 'COFFEE ........ 5¢'] },
   { header: 'LUNCH COUNTER', rows: ['TUNA MELT .... 30¢', 'CLUB ......... 25¢', 'MALT ......... 15¢', 'SOUP ......... 10¢'] },
   { header: 'BLUE PLATE', rows: ['POT ROAST .... 40¢', 'GUMBO ........ 30¢', 'BISQUE ....... 20¢', 'ASPIC ........ 15¢'] },
-  { header: 'GRAVEYARD MENU', rows: ['PICKLED EEL .. 55¢', 'SMOKED KELP .. 45¢', 'JELLIED YAM .. 30¢', 'COLD GRUEL ... 10¢'] },
+  { header: 'SUPPER CLUB', rows: [row("MEL'S BLT", '35¢'), row('DENVER OMELET', '45¢'), row('KEY LIME PIE', '30¢'), row('COFFEE, BLACK', '5¢')] },
   { header: 'FULL MOON ☾', rows: ['HAUNTED HAM .. 99¢', 'LIVE OCTOPUS . 80¢', 'MOONBEAM MALT  ??', 'SENTIENT STEW  ??'] },
 ];
 

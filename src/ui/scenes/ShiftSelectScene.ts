@@ -93,8 +93,8 @@ export class ShiftSelectScene extends Phaser.Scene {
       langText.setText(langLabel(store.updateSettings({ lang: next }).lang));
     });
 
-    // House orders (capitals and punctuation, from Wednesday on) can be switched off.
-    const toggleLabel = (on: boolean) => `[${on ? 'x' : ' '}] Caps & punctuation orders (Wed on)`;
+    // Thursday's house orders (capitals and punctuation) can be switched off.
+    const toggleLabel = (on: boolean) => `[${on ? 'x' : ' '}] Caps & punctuation (Thursday)`;
     const toggle = this.add
       .text(width / 2, settingsY + 60, toggleLabel(store.settings().fancyOrders), {
         fontFamily: FONTS.mono,
