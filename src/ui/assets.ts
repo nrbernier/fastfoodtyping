@@ -12,8 +12,8 @@ export const CHARACTERS: CharacterDef[] = POSES.map((p) => ({ key: p.key, file: 
 
 export const PLACEHOLDER_KEY = 'char-placeholder';
 
-/** Poses standing on the title-screen checkerboard, left to right. */
-export const TITLE_LINEUP = ['s-13-128', 's-07-056', 's-29-313', 's-11-114', 's-09-080'];
+/** Regulars at the title-screen counter, left to right. */
+export const TITLE_LINEUP = ['s-07-056', 's-25-272'];
 
 /** Share of orders brought by a pose of the matching tier; the rest come from a neighbouring tier. */
 export const MATCH_SHARE = 0.75;

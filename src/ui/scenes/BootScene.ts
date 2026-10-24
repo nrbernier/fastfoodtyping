@@ -19,9 +19,10 @@ export class BootScene extends Phaser.Scene {
   create() {
     buildPaperGrain(this);
     this.makePlaceholderTexture();
-    // Wait for webfonts so Phaser never rasterizes fallback fonts into text
-    // objects. fonts.ready resolves even when a font fails — safe offline.
-    const ready: Promise<unknown> = document.fonts?.ready ?? Promise.resolve();
+    // Load the webfonts before any text is drawn, so Phaser never rasterizes a
+    // fallback font (fonts.ready alone resolves before unused fonts are even
+    // requested). A font that fails to load is skipped — safe offline.
+    const ready: Promise<unknown> = loadFonts();
     Promise.allSettled([ready, loadKitchenArt(this)])
       .finally(() => this.scene.start('title'));
   }
@@ -44,4 +45,12 @@ export class BootScene extends Phaser.Scene {
     q.destroy();
     rt.destroy();
   }
+}
+
+/** Ask the browser for every face the game draws with, and wait for them. */
+export function loadFonts(): Promise<unknown> {
+  const fonts = document.fonts;
+  if (!fonts?.load) return Promise.resolve();
+  const faces = ['48px "Pacifico"', '24px "Alfa Slab One"', '500 16px "Oswald"', '700 16px "Oswald"', '16px "Special Elite"'];
+  return Promise.allSettled(faces.map((f) => fonts.load(f))).then(() => fonts.ready);
 }
