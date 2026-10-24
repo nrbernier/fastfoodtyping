@@ -352,7 +352,9 @@ export class GameScene extends Phaser.Scene {
           play('bell');
           // The tip is left on the counter beside the plate, then goes in the jar.
           const side = tx < this.registerX() ? 1 : -1;
-          this.tipJar.addTip(tx + side * 46 * this.uiScale, this.kitchenLayout().laneY + 8 * this.uiScale, tip, this.engine.score);
+          // A Finger-Counter's row of plates is wider, so his coins go further out.
+          const spread = (46 + ((order.fingers ?? 1) - 1) * 24) * this.uiScale;
+          this.tipJar.addTip(tx + side * spread, this.kitchenLayout().laneY + 8 * this.uiScale, tip, this.engine.score);
           // Served in the green: delighted; yellow: pleased; red: about time.
           const mood = patienceLeft >= 0.5 ? 'delighted' : patienceLeft >= 0.2 ? 'pleased' : 'grumpy';
           if (mood === 'delighted') play('cheer');

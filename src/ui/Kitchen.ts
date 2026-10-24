@@ -164,7 +164,7 @@ export class Kitchen {
    * back of the counter to `targetX`. `onArrive` fires once it has settled
    * (and for a mystery dish, once the lid is off).
    */
-  serve(order: Pick<Order, 'text' | 'tier' | 'exact'>, targetX: number, onArrive?: () => void) {
+  serve(order: Pick<Order, 'text' | 'tier' | 'exact' | 'fingers'>, targetX: number, onArrive?: () => void) {
     const serving = servingFor(order);
     const { potX, laneY } = this.layout;
     const s = this.dishScale;
@@ -172,7 +172,15 @@ export class Kitchen {
     let lid: Phaser.GameObjects.Image | undefined;
     let smoke: Phaser.GameObjects.Container | undefined;
     if (serving.kind === 'dish') {
-      parts.push(this.scene.add.image(0, 0, dishTextureKey(serving.dish)));
+      // A Finger-Counter gets as many as he held up: an overlapping row, front
+      // plates a touch lower so the row reads as sitting on the counter.
+      const n = order.fingers ?? 1;
+      for (let i = 0; i < n; i++) {
+        const img = this.scene.add.image(0, 0, dishTextureKey(serving.dish));
+        const step = img.width * 0.55;
+        img.setPosition((i - (n - 1) / 2) * step, (i % 2) * 4 * ART_SCALE);
+        parts.push(img);
+      }
     } else {
       parts.push(this.scene.add.image(0, 0, CLOCHE_BASE_KEY));
       smoke = this.smokeCloud(SMOKE_COLORS[serving.smoke]).setScale(0.3).setAlpha(0);
@@ -182,6 +190,10 @@ export class Kitchen {
     // Dish art is centred on (0,0) with the plate around y = 12 of a 56-unit box.
     const dish = this.scene.add.container(potX, laneY + 14 * this.layout.scale, parts)
       .setScale(s).setAlpha(0).setDepth(this.depths.lane);
+    // Keep a wide row of plates on screen at the end seats.
+    const half = (dish.getBounds().width || 0) / 2;
+    const screenW = this.scene.scale.width;
+    if (half * 2 < screenW) targetX = Phaser.Math.Clamp(targetX, half + 4, screenW - half - 4);
     const drink = serving.kind === 'dish' && DRINKS.has(serving.dish);
     const dir = Math.sign(targetX - potX) || 1;
     const settle = () => {
