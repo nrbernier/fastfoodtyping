@@ -44,6 +44,10 @@ export class GameScene extends Phaser.Scene {
   private appetiteText?: Phaser.GameObjects.Text;
   private bossMeter?: Phaser.GameObjects.Graphics;
   private bossMeterLabel?: Phaser.GameObjects.Text;
+  /** Bottom of the boss panel, so headlines can sit just under it. */
+  private bossPanelBottom = 0;
+  /** The headline on screen; a new one replaces it rather than piling on. */
+  private headline?: Phaser.GameObjects.Text;
   private store!: SaveStore;
   private lang: Lang = 'en';
   private pauseOverlay!: Phaser.GameObjects.Container;
@@ -252,6 +256,7 @@ export class GameScene extends Phaser.Scene {
     // a dark panel behind the counter and meter, so they read over the neon sign
     const top = this.appetiteText.y - 6;
     this.bossMeter.fillStyle(COLORS.darkHex, 0.7).fillRoundedRect(x - 14, top, w + 28, y + h + 10 - top, 10);
+    this.bossPanelBottom = y + h + 10;
     this.bossMeter.fillStyle(COLORS.darkHex, 0.85).fillRoundedRect(x - 3, y - 3, w + 6, h + 6, 6);
     this.bossMeter.fillStyle(0x4a4540, 1).fillRoundedRect(x, y, w, h, 4);
     if (f > 0) this.bossMeter.fillStyle(color, 1).fillRoundedRect(x, y, Math.max(8, w * f), h, 4);
@@ -562,7 +567,7 @@ export class GameScene extends Phaser.Scene {
     };
 
     // wall scene (window, menu board, big neon marquee) behind everything
-    this.backdrop = new DinerBackdrop(this, width, counterY, menuIndex, ui);
+    this.backdrop = new DinerBackdrop(this, width, counterY, menuIndex, ui, this.lang);
 
     // shift-name subtitle, between the strike plates and the neon marquee
     // (kept above the neon so it never collides with the centered order bubbles)
@@ -623,15 +628,24 @@ export class GameScene extends Phaser.Scene {
   }
 
   /** A big slab headline across the wall that pops in and fades. */
+  /**
+   * An event headline (rush, boss lines) in the strip under the plates and
+   * clock, above every order ticket, so it never hides an order.
+   */
   private banner(text: string, color: string) {
-    const { width, height } = this.scale;
-    const label = this.add.text(width / 2, height * 0.3, text, {
-      fontFamily: FONTS.slab, fontSize: '34px', color, stroke: COLORS.dark, strokeThickness: 6, align: 'center',
-      wordWrap: { width: width * 0.9 / Math.max(this.uiScale, 0.6) },
-    }).setOrigin(0.5).setDepth(DEPTH.overlay).setScale(0).setAngle(-5);
-    const s = Math.max(this.uiScale, 0.6);
-    this.tweens.add({ targets: label, scale: s, duration: 260, ease: 'Back.Out' });
-    this.tweens.add({ targets: label, alpha: 0, y: label.y - 30, delay: 1400, duration: 400, onComplete: () => label.destroy() });
+    const { width } = this.scale;
+    const s = Math.max(this.uiScale, 0.7);
+    // In the top strip, above every ticket; under the boss panel on boss nights.
+    if (this.engine.boss && !this.bossPanelBottom) this.drawBossMeter();
+    const y = this.engine.boss ? this.bossPanelBottom + 20 * s : 74 * s;
+    const label = this.add.text(width / 2, y, text, {
+      fontFamily: FONTS.slab, fontSize: '26px', color, stroke: COLORS.dark, strokeThickness: 5, align: 'center',
+    }).setOrigin(0.5).setDepth(DEPTH.overlay).setScale(0).setAngle(-3);
+    if (this.headline) { this.tweens.killTweensOf(this.headline); this.headline.destroy(); }
+    this.headline = label;
+    const fit = Math.min(s, (width * 0.92) / label.width);
+    this.tweens.add({ targets: label, scale: fit, duration: 240, ease: 'Back.Out' });
+    this.tweens.add({ targets: label, alpha: 0, y: label.y - 16, delay: 1500, duration: 400, onComplete: () => label.destroy() });
   }
 
   /** Big, lingering tip pop above the served customer. */

@@ -11,7 +11,7 @@ export class DinerBackdrop {
   readonly neon: Phaser.GameObjects.Container;
   private objects: Phaser.GameObjects.GameObject[] = [];
 
-  constructor(scene: Phaser.Scene, width: number, wallBottom: number, shiftIndex = 0, uiScale = 1) {
+  constructor(scene: Phaser.Scene, width: number, wallBottom: number, shiftIndex = 0, uiScale = 1, lang: 'en' | 'fr' = 'en') {
     const keep = <T extends Phaser.GameObjects.GameObject>(o: T): T => {
       this.objects.push(o);
       return o;
@@ -25,7 +25,7 @@ export class DinerBackdrop {
     // Wall furniture shrinks on small/narrow viewports so it doesn't crowd the
     // marquee or collide with the customers' order tickets.
     keep(makeWindowBlinds(scene, width * 0.2, wallBottom * 0.48, 150, 110)).setScale(uiScale);
-    keep(makeMenuBoard(scene, width * 0.82, wallBottom * 0.5, shiftIndex)).setScale(uiScale);
+    keep(makeMenuBoard(scene, width * 0.82, wallBottom * 0.5, shiftIndex, lang)).setScale(uiScale);
     // The big house sign: large neon script, the marquee for the whole diner.
     // Anchored lower so it sits clear below the top-left strike plates.
     this.neon = keep(makeNeonSign(scene, width * 0.5, wallBottom * 0.3, "Mel's Diner", 60)).setScale(uiScale);

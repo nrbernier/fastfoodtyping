@@ -21,7 +21,20 @@ export function makeWindowBlinds(
  * Wall menus by shift. Early shifts are wholesome diner fare; later shifts read
  * like the kitchen has gone feral, echoing the strange tier-3 orders.
  */
-const MENUS: ReadonlyArray<{ header: string; rows: string[] }> = [
+type Menu = { header: string; rows: string[] };
+
+/** "NAME ...... 25¢" padded to the board's 18 columns. */
+const row = (name: string, price: string) => `${name} ${'.'.repeat(Math.max(1, 18 - name.length - price.length - 2))} ${price}`;
+
+const MENUS_FR: ReadonlyArray<Menu> = [
+  { header: 'AUJOURD’HUI • CAFÉ 5¢', rows: [row('BURGER', '25¢'), row('MILKSHAKE', '15¢'), row('TARTE', '10¢'), row('CAFÉ', '5¢')] },
+  { header: 'COMPTOIR DU MIDI', rows: [row('CROQUE', '30¢'), row('CLUB', '25¢'), row('DIABOLO', '15¢'), row('SOUPE', '10¢')] },
+  { header: 'PLAT DU JOUR', rows: [row('POT-AU-FEU', '40¢'), row('GRATIN', '30¢'), row('BISQUE', '20¢'), row('GELÉE', '15¢')] },
+  { header: 'MENU DE MINUIT', rows: [row('ANGUILLE', '55¢'), row('ALGUE FUMÉE', '45¢'), row('NAVET CONFIT', '30¢'), row('BOUILLIE', '10¢')] },
+  { header: 'PLEINE LUNE ☾', rows: [row('JAMBON HANTÉ', '99¢'), row('POULPE VIF', '80¢'), row('LAIT LUNAIRE', '??'), row('RAGOÛT PENSIF', '??')] },
+];
+
+const MENUS: ReadonlyArray<Menu> = [
   { header: 'TODAY • 5¢ COFFEE', rows: ['BURGER ....... 25¢', 'SHAKE ........ 15¢', 'PIE .......... 10¢', 'COFFEE ........ 5¢'] },
   { header: 'LUNCH COUNTER', rows: ['TUNA MELT .... 30¢', 'CLUB ......... 25¢', 'MALT ......... 15¢', 'SOUP ......... 10¢'] },
   { header: 'BLUE PLATE', rows: ['POT ROAST .... 40¢', 'GUMBO ........ 30¢', 'BISQUE ....... 20¢', 'ASPIC ........ 15¢'] },
@@ -31,9 +44,10 @@ const MENUS: ReadonlyArray<{ header: string; rows: string[] }> = [
 
 /** Wall menu board: charcoal slate, red header, mono price rows. */
 export function makeMenuBoard(
-  scene: Phaser.Scene, x: number, y: number, shiftIndex = 0,
+  scene: Phaser.Scene, x: number, y: number, shiftIndex = 0, lang: 'en' | 'fr' = 'en',
 ): Phaser.GameObjects.Container {
-  const menu = MENUS[Math.min(Math.max(shiftIndex, 0), MENUS.length - 1)];
+  const menus = lang === 'fr' ? MENUS_FR : MENUS;
+  const menu = menus[Math.min(Math.max(shiftIndex, 0), menus.length - 1)];
   const w = 220;
   const h = 150;
   const board = scene.add.rectangle(0, 0, w, h, COLORS.darkHex).setStrokeStyle(5, COLORS.mustardHex);
