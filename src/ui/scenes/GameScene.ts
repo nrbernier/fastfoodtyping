@@ -14,7 +14,7 @@ import { CustomerView, MIN_TICKET_SCALE } from '../CustomerView';
 import { pickPose } from '../assets';
 import { Hud } from '../Hud';
 import { Kitchen, type KitchenLayout } from '../Kitchen';
-import { COLORS, FONTS, makeStarburst } from '../theme';
+import { COLORS, FONTS, makeButton, makeStarburst } from '../theme';
 import { DinerBackdrop } from '../DinerBackdrop';
 import { makeCashRegister, makeCondimentGroup, makeReceiptSpike, makeSmallReceipt } from '../scenery';
 import { applyPaperGrain } from '../texture';
@@ -57,6 +57,9 @@ export class GameScene extends Phaser.Scene {
   private hidden?: HiddenInput;
   private pauseRect!: Phaser.GameObjects.Rectangle;
   private pauseText!: Phaser.GameObjects.Text;
+  private pauseButtons!: Phaser.GameObjects.Container;
+  /** Taps on these don't count as "tap anywhere to resume". */
+  private pauseControls = new Set<Phaser.GameObjects.GameObject>();
   private shiftElapsedMs = 0;
   private clockText!: Phaser.GameObjects.Text;
   private backdrop!: DinerBackdrop;
@@ -172,16 +175,23 @@ export class GameScene extends Phaser.Scene {
       document.addEventListener('visibilitychange', onVis);
       this.cleanupFns.push(() => document.removeEventListener('visibilitychange', onVis));
 
-      this.input.on('pointerdown', () => {
+      this.hud.addPauseButton(() => this.pauseGame());
+      if (this.hud.pauseButton) this.pauseControls.add(this.hud.pauseButton);
+
+      this.input.on('pointerdown', (_p: Phaser.Input.Pointer, over: Phaser.GameObjects.GameObject[]) => {
         unlockAudio();
+        if (over.some((o) => this.pauseControls.has(o))) return;
         if (this.gamePaused) this.resumeGame();
         // Keep the phone keyboard up when the player taps a customer.
         else this.hidden?.focus();
       });
 
-      // Escape lets go of the current order (its progress is kept).
+      // Escape pauses (with a way back to the menu), and resumes again.
       const onEscape = (e: KeyboardEvent) => {
-        if (e.key === 'Escape' && !this.gamePaused) this.engine.releaseLock();
+        if (e.key !== 'Escape') return;
+        e.preventDefault();
+        if (this.gamePaused) this.resumeGame();
+        else this.pauseGame();
       };
       window.addEventListener('keydown', onEscape);
       this.cleanupFns.push(() => window.removeEventListener('keydown', onEscape));
@@ -211,7 +221,8 @@ export class GameScene extends Phaser.Scene {
       }
       this.hud.layout(w, h);
       this.pauseRect.setSize(w, h);
-      this.pauseText.setPosition(w / 2, h / 2);
+      this.pauseText.setPosition(w / 2, h / 2).setWordWrapWidth(w - 32);
+      this.layoutPauseButtons(w, h);
     };
     this.scale.on(Phaser.Scale.Events.RESIZE, onResize);
     this.cleanupFns.push(() => this.scale.off(Phaser.Scale.Events.RESIZE, onResize));
@@ -775,15 +786,34 @@ export class GameScene extends Phaser.Scene {
         fontStyle: 'bold',
         color: COLORS.cream,
         align: 'center',
+        wordWrap: { width: width - 32 },
       })
       .setOrigin(0.5);
-    this.pauseOverlay = this.add.container(0, 0, [this.pauseRect, this.pauseText]).setDepth(1100).setVisible(false);
+    this.pauseButtons = this.add.container(0, 0);
+    this.layoutPauseButtons(width, height);
+    this.pauseOverlay = this.add.container(0, 0, [this.pauseRect, this.pauseText, this.pauseButtons]).setDepth(1100).setVisible(false);
+  }
+
+  /** RESUME and MENU under the pause message. */
+  private layoutPauseButtons(width: number, height: number) {
+    this.pauseButtons.removeAll(true);
+    for (const o of [...this.pauseControls]) if (!o.active) this.pauseControls.delete(o);
+    const y = height / 2 + 90;
+    const gap = Math.min(110, width / 4);
+    const resume = makeButton(this, width / 2 - gap, y, 'RESUME', () => this.resumeGame(), true, { fontSize: 20 });
+    const menu = makeButton(this, width / 2 + gap, y, 'MENU', () => this.scene.start('title'), true, { fontSize: 20, fill: COLORS.darkHex });
+    for (const b of [resume, menu]) {
+      this.pauseButtons.add(b);
+      for (const part of b.list) if (part.input) this.pauseControls.add(part);
+    }
   }
 
   private pauseGame(message = 'PAUSED\nBack to the grill? Press any key or tap.') {
     if (this.gamePaused || this.engine.isOver) return;
     this.gamePaused = true;
     this.pauseText.setText(message);
+    // The "tap to start" screen has nothing to resume or leave yet.
+    this.pauseButtons.setVisible(!message.startsWith('TAP TO START'));
     this.pauseOverlay.setVisible(true);
   }
 

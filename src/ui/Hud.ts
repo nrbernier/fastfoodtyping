@@ -10,6 +10,8 @@ export class Hud {
   private strikeRow: Phaser.GameObjects.Container;
   private strikes = 0;
   private soundToggle?: Phaser.GameObjects.Text;
+  /** Pause button beside the sound toggle (phones have no Escape key). */
+  pauseButton?: Phaser.GameObjects.Text;
 
   constructor(private scene: Phaser.Scene) {
     // Strikes live near the top of the screen so a broken plate is impossible to miss.
@@ -21,6 +23,24 @@ export class Hud {
   layout(_width: number, _height: number) {
     this.strikeRow.setPosition(28, 34);
     this.soundToggle?.setPosition(28 + 2 * PLATE_GAP + 40, 34);
+    this.pauseButton?.setPosition(this.pauseX(), 34);
+  }
+
+  private pauseX(): number {
+    return (this.soundToggle ? this.soundToggle.x + this.soundToggle.width : 28 + 2 * PLATE_GAP + 40) + 8;
+  }
+
+  /** A small pause button after the sound toggle. */
+  addPauseButton(onPause: () => void) {
+    this.pauseButton = this.scene.add
+      .text(this.pauseX(), 34, '❚❚', {
+        fontFamily: FONTS.mono, fontSize: '15px', color: COLORS.dark,
+        backgroundColor: COLORS.cream, padding: { x: 7, y: 3 },
+      })
+      .setOrigin(0, 0.5)
+      .setDepth(1000)
+      .setInteractive({ useHandCursor: true });
+    this.pauseButton.on('pointerdown', onPause);
   }
 
   /** A small speaker button beside the strike plates. */
