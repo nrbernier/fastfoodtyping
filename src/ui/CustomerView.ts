@@ -5,7 +5,7 @@ import { HEADS, type PoseDef } from './cast';
 import { COLORS, FONTS, makeLiveTicket, makeStarburst, type LiveTicket } from './theme';
 import { fitPose, SPRITE_HEIGHT } from './headFit';
 
-const TICKET_GAP = 30;
+const TICKET_GAP = 14;
 
 /** Speech balloons on screen, per scene, so a new one can move clear of them. */
 const VIEWS = new WeakMap<Phaser.Scene, Set<CustomerView>>();
@@ -22,7 +22,7 @@ export class CustomerView extends Phaser.GameObjects.Container {
   /** Who is standing here, so the scene never seats the same person twice. */
   readonly character: string;
   private ticket: LiveTicket;
-  private bar: Phaser.GameObjects.Graphics;
+  private bar!: Phaser.GameObjects.Graphics;
   private sprite: Phaser.GameObjects.Image;
   private ticketHalf1 = 0; // ticket half-height measured at scale 1
   private ticketHalfW1 = 0; // and half-width
@@ -88,8 +88,7 @@ export class CustomerView extends Phaser.GameObjects.Container {
     this.ticket = this.buildTicket(customer.order);
     this.ticket.container.setScale(0);
 
-    this.bar = scene.add.graphics();
-    this.add([this.bar, this.sprite]);
+    this.add(this.sprite);
     scene.add.existing(this);
     const views = VIEWS.get(scene) ?? new Set();
     VIEWS.set(scene, views);
@@ -168,6 +167,9 @@ export class CustomerView extends Phaser.GameObjects.Container {
     this.ticketHalfW1 = ticket.width / 2;
     ticket.setBaseScale(this.ticketScale());
     ticket.container.setDepth(this.ticketDepth);
+    // The patience strip rides on the ticket, so no art can hide it.
+    this.bar = this.scene.add.graphics().setVisible(!this.barHidden);
+    ticket.container.add(this.bar);
     if (this.tapHandler) this.makeTicketTappable(ticket);
     return ticket;
   }
@@ -370,10 +372,12 @@ export class CustomerView extends Phaser.GameObjects.Container {
   updatePatience(fraction: number) {
     const f = Math.max(0, fraction);
     const color = f > 0.5 ? 0x27ae60 : f > 0.2 ? COLORS.mustardHex : COLORS.redHex;
+    // a strip along the top of the ticket, inside its border
+    const w = this.ticketHalfW1 * 2 - 8;
+    const y = -this.ticketHalf1 + 4;
     this.bar.clear();
-    this.bar.lineStyle(1, COLORS.darkHex, 1).strokeRect(-40, this.barY, 80, 8);
-    this.bar.fillStyle(COLORS.darkHex, 0.15).fillRect(-40, this.barY, 80, 8);
-    this.bar.fillStyle(color, 1).fillRect(-40, this.barY, 80 * f, 8);
+    this.bar.fillStyle(COLORS.darkHex, 0.12).fillRect(-w / 2, y, w, 5);
+    this.bar.fillStyle(color, 1).fillRect(-w / 2, y, w * f, 5);
     // jitter when about to storm out
     this.sprite.setAngle(f < 0.2 ? Math.sin(this.scene.time.now / 50) * 4 : 0);
   }
