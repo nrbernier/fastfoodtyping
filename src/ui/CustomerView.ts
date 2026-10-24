@@ -211,34 +211,71 @@ export class CustomerView extends Phaser.GameObjects.Container {
   }
 
   /**
-   * A comic speech balloon floating above the customer's order ticket, its
-   * tail pointing down at them. It sits in the wall space over the tickets,
-   * so it never covers an order or a face.
+   * A comic-book balloon floating above the customer's order ticket, its tail
+   * curling down toward them: an oval for talk, a jagged burst for shouting
+   * (red lines). Hand-lettered capitals, like the funny pages. It sits in the
+   * wall space over the tickets, so it never covers an order or a face.
    */
   say(phrase: string, hold = 900, color: string = COLORS.dark) {
     const scene = this.scene;
     if (!scene) return;
     const ts = this.ticketScale();
-    const label = scene.add.text(0, 0, phrase, {
-      fontFamily: FONTS.slab, fontSize: '17px', color, align: 'center', wordWrap: { width: 200 },
+    const shout = color === COLORS.red;
+    const label = scene.add.text(0, 0, phrase.toUpperCase(), {
+      fontFamily: FONTS.sans, fontSize: '16px', fontStyle: 'bold', color, align: 'center',
+      wordWrap: { width: 170 }, lineSpacing: -2,
     }).setOrigin(0.5);
-    const w = label.width + 22;
-    const h = label.height + 12;
+    const rx = label.width / 2 + 18;
+    const ry = label.height / 2 + 12;
     const g = scene.add.graphics();
-    g.fillStyle(COLORS.darkHex, 0.3).fillRoundedRect(-w / 2 + 3, -h / 2 + 3, w, h, 14);
-    g.fillStyle(0xfffaf0, 1).fillRoundedRect(-w / 2, -h / 2, w, h, 14);
-    g.lineStyle(2.5, COLORS.darkHex, 1).strokeRoundedRect(-w / 2, -h / 2, w, h, 14);
-    // tail: a little wedge down toward the ticket, outlined on its two sides
-    const tx = -w * 0.18;
-    g.fillStyle(0xfffaf0, 1).fillTriangle(tx - 7, h / 2 - 2, tx + 7, h / 2 - 2, tx - 2, h / 2 + 12);
-    g.lineStyle(2.5, COLORS.darkHex, 1).lineBetween(tx - 7, h / 2, tx - 2, h / 2 + 12).lineBetween(tx + 7, h / 2, tx - 2, h / 2 + 12);
+    const ink = COLORS.darkHex;
+    const paper = 0xfffaf0;
+    // the tail: a curved wedge from the balloon's underside down and to the left
+    const tail = (grow: number) => {
+      const pts: Phaser.Math.Vector2[] = [];
+      const base = ry * 0.85;
+      for (let i = 0; i <= 10; i++) { // left edge, curving
+        const t = i / 10;
+        pts.push(new Phaser.Math.Vector2(-rx * 0.15 - t * rx * 0.35 + grow, base + t * (ry * 0.9 + 6) + grow));
+      }
+      for (let i = 10; i >= 0; i--) { // right edge back up
+        const t = i / 10;
+        pts.push(new Phaser.Math.Vector2(rx * 0.12 - t * rx * 0.47 - grow, base + t * (ry * 0.9 + 6) - (1 - t) * 4 + grow));
+      }
+      return pts;
+    };
+    const outline = (grow: number) => {
+      if (!shout) return null;
+      const pts: Phaser.Math.Vector2[] = [];
+      const n = 18;
+      for (let i = 0; i < n * 2; i++) {
+        const a = (i / (n * 2)) * Math.PI * 2;
+        const k = i % 2 ? 1.0 : 1.22;
+        pts.push(new Phaser.Math.Vector2(Math.cos(a) * (rx * k + grow), Math.sin(a) * (ry * k + grow)));
+      }
+      return pts;
+    };
+    // shadow, ink outline (drawn 2.5px bigger), then paper
+    g.fillStyle(ink, 0.25);
+    if (shout) g.fillPoints(outline(0)!.map((p) => p.clone().add({ x: 3, y: 3 } as Phaser.Math.Vector2)), true);
+    else g.fillEllipse(3, 3, rx * 2, ry * 2);
+    g.fillStyle(ink, 1);
+    g.fillPoints(tail(-2.5), true);
+    if (shout) g.fillPoints(outline(2.5)!, true);
+    else g.fillEllipse(0, 0, rx * 2 + 5, ry * 2 + 5);
+    g.fillStyle(shout ? 0xfff1c9 : paper, 1);
+    g.fillPoints(tail(0), true);
+    if (shout) g.fillPoints(outline(0)!, true);
+    else g.fillEllipse(0, 0, rx * 2, ry * 2);
     const ticket = this.ticket.container;
     const top = ticket.y - this.ticketHalf1 * ts;
-    const half = (w / 2) * ts;
-    const x = Phaser.Math.Clamp(ticket.x + w * 0.18 * ts, half + 4, scene.scale.width - half - 4);
-    const bubble = scene.add.container(x, Math.max(60 + (h / 2) * ts, top - (h / 2 + 16) * ts), [g, label])
-      .setDepth(this.ticketDepth + 5).setScale(0).setAngle(-2);
+    const halfW = rx * (shout ? 1.25 : 1) * ts;
+    const halfH = ry * (shout ? 1.25 : 1) * ts;
+    const x = Phaser.Math.Clamp(ticket.x + rx * 0.3 * ts, halfW + 4, scene.scale.width - halfW - 4);
+    const y = Math.max(58 + halfH, top - (ry * 1.9 + 10) * ts);
+    const bubble = scene.add.container(x, y, [g, label]).setDepth(this.ticketDepth + 5).setScale(0).setAngle(shout ? -4 : -2);
     scene.tweens.add({ targets: bubble, scale: ts, duration: 170, ease: 'Back.Out' });
+    if (shout) scene.tweens.add({ targets: bubble, angle: 3, duration: 70, yoyo: true, repeat: 3, delay: 170 });
     scene.tweens.add({ targets: bubble, alpha: 0, y: bubble.y - 8, delay: hold, duration: 220, onComplete: () => bubble.destroy() });
   }
 
