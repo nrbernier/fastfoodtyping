@@ -20,6 +20,7 @@ export class CustomerView extends Phaser.GameObjects.Container {
   private ticketHalf1 = 0; // ticket half-height measured at scale 1
   private ticketHalfW1 = 0; // and half-width
   private tapHandler?: () => void;
+  private barHidden = false;
   /** Depth the scene gave this customer (served ones step behind newcomers). */
   private baseDepth = 0;
 
@@ -182,13 +183,19 @@ export class CustomerView extends Phaser.GameObjects.Container {
     this.scene.tweens.add({ targets: old, scale: 0, duration: 150, onComplete: () => old.destroy() });
     this.ticket = this.buildTicket(order);
     this.ticketFade.alpha = 1;
-    this.bar.setVisible(true);
+    this.bar.setVisible(!this.barHidden);
     this.setDepth(this.baseDepth);
     this.locked = false;
     this.ticket.container.setScale(0);
     this.positionTicket();
     this.scene.tweens.add({ targets: this.ticket.container, scale: this.ticketScale(), duration: 220, ease: 'Back.Out' });
     if (announce) this.say(announce);
+  }
+
+  /** The boss's patience lives in the big meter at the top instead. */
+  hideBar() {
+    this.bar.setVisible(false);
+    this.barHidden = true;
   }
 
   /** Jumble the ticket's remaining letters for a moment. */
@@ -203,17 +210,36 @@ export class CustomerView extends Phaser.GameObjects.Container {
     this.scene.tweens.add({ targets: this.sprite, angle: 3, duration: 180, yoyo: true, repeat: 5 });
   }
 
-  /** A speech bubble beside the head. */
+  /**
+   * A comic speech balloon floating above the customer's order ticket, its
+   * tail pointing down at them. It sits in the wall space over the tickets,
+   * so it never covers an order or a face.
+   */
   say(phrase: string, hold = 900, color: string = COLORS.dark) {
     const scene = this.scene;
     if (!scene) return;
-    const s = this.uiScale;
-    const bubble = scene.add.text(this.x + 34 * s, this.y + (this.headY - 4) * s, phrase, {
-      fontFamily: FONTS.slab, fontSize: '16px', color, backgroundColor: COLORS.cream, padding: { x: 7, y: 4 },
-    }).setOrigin(0, 1).setDepth(45).setScale(0).setAngle(-4);
-    bubble.setX(Math.min(bubble.x, scene.scale.width - bubble.width * s - 4));
-    scene.tweens.add({ targets: bubble, scale: s, duration: 160, ease: 'Back.Out' });
-    scene.tweens.add({ targets: bubble, alpha: 0, delay: hold, duration: 200, onComplete: () => bubble.destroy() });
+    const ts = this.ticketScale();
+    const label = scene.add.text(0, 0, phrase, {
+      fontFamily: FONTS.slab, fontSize: '17px', color, align: 'center', wordWrap: { width: 200 },
+    }).setOrigin(0.5);
+    const w = label.width + 22;
+    const h = label.height + 12;
+    const g = scene.add.graphics();
+    g.fillStyle(COLORS.darkHex, 0.3).fillRoundedRect(-w / 2 + 3, -h / 2 + 3, w, h, 14);
+    g.fillStyle(0xfffaf0, 1).fillRoundedRect(-w / 2, -h / 2, w, h, 14);
+    g.lineStyle(2.5, COLORS.darkHex, 1).strokeRoundedRect(-w / 2, -h / 2, w, h, 14);
+    // tail: a little wedge down toward the ticket, outlined on its two sides
+    const tx = -w * 0.18;
+    g.fillStyle(0xfffaf0, 1).fillTriangle(tx - 7, h / 2 - 2, tx + 7, h / 2 - 2, tx - 2, h / 2 + 12);
+    g.lineStyle(2.5, COLORS.darkHex, 1).lineBetween(tx - 7, h / 2, tx - 2, h / 2 + 12).lineBetween(tx + 7, h / 2, tx - 2, h / 2 + 12);
+    const ticket = this.ticket.container;
+    const top = ticket.y - this.ticketHalf1 * ts;
+    const half = (w / 2) * ts;
+    const x = Phaser.Math.Clamp(ticket.x + w * 0.18 * ts, half + 4, scene.scale.width - half - 4);
+    const bubble = scene.add.container(x, Math.max(60 + (h / 2) * ts, top - (h / 2 + 16) * ts), [g, label])
+      .setDepth(this.ticketDepth + 5).setScale(0).setAngle(-2);
+    scene.tweens.add({ targets: bubble, scale: ts, duration: 170, ease: 'Back.Out' });
+    scene.tweens.add({ targets: bubble, alpha: 0, y: bubble.y - 8, delay: hold, duration: 220, onComplete: () => bubble.destroy() });
   }
 
   get isLocked(): boolean {

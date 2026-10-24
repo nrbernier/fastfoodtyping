@@ -1,5 +1,5 @@
 import { Emitter } from './emitter';
-import { lerp, mixTiers, orderPatienceMs, paramsAt, type Pace } from './difficulty';
+import { lerp, mixTiers, orderPatienceMs, PACES, paramsAt, type Pace } from './difficulty';
 import { OrderGenerator, type Focus } from './orderGenerator';
 import type { Vocabulary } from './lang';
 import { mulberry32, type Rng } from './rng';
@@ -322,12 +322,14 @@ export class ShiftEngine {
   /** The boss takes the centre seat. */
   private spawnBoss(params: LiveParams): void {
     const def = this.config.boss!;
+    // Bosses follow the pace setting like everyone else.
+    const patience = def.patienceMs * PACES[this.pace].patience;
     const customer: CustomerState = {
       id: this.nextId++,
       slot: Math.floor((this.cap - 1) / 2),
       order: this.bossOrder(),
-      patienceTotalMs: def.patienceMs,
-      patienceMs: def.patienceMs,
+      patienceTotalMs: patience,
+      patienceMs: patience,
       resolved: false,
       special: 'boss',
     };
@@ -382,7 +384,7 @@ export class ShiftEngine {
       this.events.emit('bossAppetite', this.bossAppetite);
     }
     this.bossServed += 1;
-    c.patienceMs = Math.min(c.patienceTotalMs, c.patienceMs + def.calmMs);
+    c.patienceMs = Math.min(c.patienceTotalMs, c.patienceMs + def.calmMs * PACES[this.pace].patience);
     this.events.emit('bossAppetite', this.bossAppetite);
     if (this.bossServed >= this.bossTotal) {
       c.resolved = true;

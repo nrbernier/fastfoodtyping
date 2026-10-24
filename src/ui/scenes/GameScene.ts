@@ -42,6 +42,8 @@ export class GameScene extends Phaser.Scene {
   private kitchen!: Kitchen;
   private tipJar!: TipJar;
   private appetiteText?: Phaser.GameObjects.Text;
+  private bossMeter?: Phaser.GameObjects.Graphics;
+  private bossMeterLabel?: Phaser.GameObjects.Text;
   private store!: SaveStore;
   private lang: Lang = 'en';
   private pauseOverlay!: Phaser.GameObjects.Container;
@@ -122,6 +124,13 @@ export class GameScene extends Phaser.Scene {
       this.appetiteText = this.add.text(width / 2, this.counterY() * 0.17 + 44 * this.uiScale, '', {
         fontFamily: FONTS.slab, fontSize: '22px', color: COLORS.mustard, stroke: COLORS.dark, strokeThickness: 5,
       }).setOrigin(0.5, 0).setScale(this.uiScale).setDepth(DEPTH.hud);
+      // His patience as a wide meter under the counter of dishes.
+      const bossName = this.config.id === 'boss-lou' ? (this.lang === 'fr' ? 'PATIENCE DU GROS LOU' : "BIG LOU'S PATIENCE")
+        : this.lang === 'fr' ? 'PATIENCE DE GROS-SOUS' : "MONEYBAGS' PATIENCE";
+      this.bossMeterLabel = this.add.text(0, 0, bossName, {
+        fontFamily: FONTS.sans, fontSize: '13px', fontStyle: 'bold', color: COLORS.cream, stroke: COLORS.dark, strokeThickness: 4,
+      }).setOrigin(0.5, 1).setDepth(DEPTH.hud);
+      this.bossMeter = this.add.graphics().setDepth(DEPTH.hud - 1);
     }
     if (!this.demo) {
       this.hud.addSoundToggle(!isMuted(), (on) => {
@@ -222,6 +231,31 @@ export class GameScene extends Phaser.Scene {
     for (const c of this.engine.activeCustomers) {
       this.views.get(c.id)?.updatePatience(c.patienceMs / c.patienceTotalMs);
     }
+    this.drawBossMeter();
+  }
+
+  /** The boss's patience, big and centred under the dish counter; it shakes when nearly gone. */
+  private drawBossMeter() {
+    const boss = this.engine.boss;
+    if (!this.bossMeter || !this.bossMeterLabel || !this.appetiteText) return;
+    this.bossMeter.clear();
+    this.bossMeterLabel.setVisible(Boolean(boss));
+    if (!boss) return;
+    const f = Math.max(0, boss.patienceMs / boss.patienceTotalMs);
+    const w = Math.min(320, this.scale.width * 0.72);
+    const h = 16 * Math.max(this.uiScale, 0.8);
+    const jitter = f < 0.25 ? Math.sin(this.time.now / 40) * 3 : 0;
+    const x = this.scale.width / 2 - w / 2 + jitter;
+    const y = this.appetiteText.y + this.appetiteText.displayHeight + 22 * this.uiScale;
+    const color = f > 0.5 ? 0x27ae60 : f > 0.25 ? COLORS.mustardHex : COLORS.redHex;
+    this.bossMeterLabel.setPosition(this.scale.width / 2 + jitter, y - 2).setScale(Math.max(this.uiScale, 0.8));
+    // a dark panel behind the counter and meter, so they read over the neon sign
+    const top = this.appetiteText.y - 6;
+    this.bossMeter.fillStyle(COLORS.darkHex, 0.7).fillRoundedRect(x - 14, top, w + 28, y + h + 10 - top, 10);
+    this.bossMeter.fillStyle(COLORS.darkHex, 0.85).fillRoundedRect(x - 3, y - 3, w + 6, h + 6, 6);
+    this.bossMeter.fillStyle(0x4a4540, 1).fillRoundedRect(x, y, w, h, 4);
+    if (f > 0) this.bossMeter.fillStyle(color, 1).fillRoundedRect(x, y, Math.max(8, w * f), h, 4);
+    this.bossMeter.fillStyle(0xffffff, 0.25).fillRect(x + 4, y + 2, Math.max(0, w * f - 8), h * 0.3);
   }
 
   // ---- input ----
@@ -260,6 +294,7 @@ export class GameScene extends Phaser.Scene {
       );
       view.setDepth(DEPTH.customer);
       if (bossPose) {
+        view.hideBar();
         play('rush');
         this.banner(this.config.name.replace(/^.*?:\s*/, '').toUpperCase(), COLORS.mustard);
         this.time.delayedCall(900, () => view.say(bossLine(this.config.id, 'intro', this.lang), 1800));
